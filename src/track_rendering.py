@@ -5,7 +5,26 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from scipy.interpolate import UnivariateSpline
+from shapely.geometry import LineString
 from pathlib import Path
+
+
+def build_track_surface(centerline_xy, width_m=12.0):
+    """
+    Create track surface polygon by buffering the centerline.
+
+    Args:
+        centerline_xy: List of (x, y) tuples representing centerline in meters
+        width_m: Total track width in meters (default: 12.0)
+
+    Returns:
+        tuple: (poly_x, poly_y) - polygon coordinates for plotting
+    """
+    half = width_m / 2.0
+    line = LineString(centerline_xy)
+    poly = line.buffer(half, cap_style=2, join_style=2)  # square caps/joints
+    ext = poly.exterior
+    return list(ext.coords.xy[0]), list(ext.coords.xy[1])
 
 
 def generate_track_outline(
@@ -76,17 +95,36 @@ def generate_track_outline(
         x_smooth = x
         y_smooth = y
 
+    # Build track surface polygon (12m width)
+    print("Building track surface polygon (12m width)...")
+    centerline_xy = list(zip(x_smooth, y_smooth))
+    poly_x, poly_y = build_track_surface(centerline_xy, width_m=12.0)
+
     # Create Plotly figure with dark theme
     fig = go.Figure()
 
-    # Add track outline
+    # Add track surface (filled polygon, behind everything)
+    fig.add_trace(
+        go.Scatter(
+            x=poly_x,
+            y=poly_y,
+            mode="lines",
+            fill="toself",
+            fillcolor="rgba(255,255,255,0.07)",
+            line=dict(color="rgba(220,220,220,0.2)", width=1),
+            name="Track surface",
+            hoverinfo="skip",
+        )
+    )
+
+    # Add centerline (on top of surface)
     fig.add_trace(
         go.Scatter(
             x=x_smooth,
             y=y_smooth,
             mode="lines",
-            line=dict(color="#00ff00", width=3),
-            name="Track Outline",
+            line=dict(color="#5cf", width=3),
+            name="Centerline",
             hovertemplate="x: %{x:.1f}m<br>y: %{y:.1f}m<extra></extra>",
         )
     )
