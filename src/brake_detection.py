@@ -106,3 +106,89 @@ def filter_brake_events_by_pressure(df_events, min_pressure=None, max_pressure=N
         print(f"Filtered to <= {max_pressure} bar: {len(df_filtered):,} events")
 
     return df_filtered
+
+
+def detect_brake_peak_events(df, threshold):
+    """
+    Detect one peak (max brake_pressure) per contiguous braking episode.
+
+    Args:
+        df: Telemetry DataFrame with pbrake_f, pbrake_r, x_meters, y_meters,
+            timestamp, lap, vehicle_number
+        threshold: Brake pressure threshold in bar (same as onset)
+
+    Returns:
+        DataFrame with one row per episode at its peak containing:
+        vehicle_number, lap, timestamp, x_meters, y_meters,
+        VBOX_Long_Minutes, VBOX_Lat_Min, brake_pressure, brake_type, pbrake_f, pbrake_r
+    """
+    print(f"Detecting brake peaks with threshold: {threshold:.2f} bar")
+
+    # Ensure correct ordering
+    df = df.sort_values(["vehicle_number", "lap", "timestamp"]).copy()
+
+    # Combine front and rear brake pressures and determine leader
+    df["brake_pressure"] = df[["pbrake_f", "pbrake_r"]].max(axis=1)
+    df["brake_type"] = np.where(df["pbrake_f"] >= df["pbrake_r"], "front", "rear")
+
+    # Flag samples where braking
+    df["is_braking"] = df["brake_pressure"] >= threshold
+
+    peak_events = []
+
+    # Process per vehicle and lap to avoid cross-boundary artifacts
+    for (vehicle, lap), group in df.groupby(["vehicle_number", "lap"], sort=False):
+        if not group["is_braking"].any():
+            continue
+
+        # Identify start of each braking episode (rising edges)
+        prev_braking = group["is_braking"].shift(1, fill_value=False)
+        rising_edge = group["is_braking"] & (~prev_braking)
+        event_ids = rising_edge.cumsum()
+
+        # Consider only rows while braking and assign episode ids
+        group_on = group[group["is_braking"]].copy()
+        if len(group_on) == 0:
+            continue
+        group_on["event_id"] = event_ids[group_on.index]
+
+        # Select the maximum brake_pressure row within each episode
+        idx_max = group_on.groupby("event_id")["brake_pressure"].idxmax()
+        peaks = group.loc[
+            idx_max,
+            [
+                "vehicle_number",
+                "lap",
+                "timestamp",
+                "x_meters",
+                "y_meters",
+                "VBOX_Long_Minutes",
+                "VBOX_Lat_Min",
+                "brake_pressure",
+                "brake_type",
+                "pbrake_f",
+                "pbrake_r",
+            ],
+        ]
+        peak_events.append(peaks)
+
+    if len(peak_events) == 0:
+        print("❌ WARNING: No brake peaks detected!")
+        return pd.DataFrame()
+
+    df_peaks = pd.concat(peak_events, ignore_index=True)
+
+    print(f"✓ Detected {len(df_peaks):,} brake peak events")
+    print(
+        f"  Events per vehicle (avg): {len(df_peaks) / df['vehicle_number'].nunique():.1f}"
+    )
+    print(
+        f"  Front brake led: {(df_peaks['brake_type'] == 'front').sum():,}"
+        f" ({100 * (df_peaks['brake_type'] == 'front').mean():.1f}%)"
+    )
+    print(
+        f"  Rear brake led: {(df_peaks['brake_type'] == 'rear').sum():,}"
+        f" ({100 * (df_peaks['brake_type'] == 'rear').mean():.1f}%)"
+    )
+
+    return df_peaks

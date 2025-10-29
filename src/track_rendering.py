@@ -4,48 +4,164 @@
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from scipy.interpolate import UnivariateSpline
-from shapely.geometry import LineString
+from scipy.interpolate import interp1d
+from scipy.signal import savgol_filter
 from pathlib import Path
 
 
-def build_track_surface(centerline_xy, width_m=12.0):
+def resample_by_distance(x, y, step_m=2.0, spike_threshold_m=10.0):
     """
-    Create track surface polygon by buffering the centerline.
+    Resample GPS track to uniform distance spacing, removing spikes.
 
     Args:
-        centerline_xy: List of (x, y) tuples representing centerline in meters
-        width_m: Total track width in meters (default: 12.0)
+        x: x coordinates in meters
+        y: y coordinates in meters
+        step_m: Target spacing between points in meters
+        spike_threshold_m: Maximum allowed segment length (drop spikes exceeding this)
 
     Returns:
-        tuple: (poly_x, poly_y) - polygon coordinates for plotting
+        tuple: (x_resampled, y_resampled, distances)
     """
-    half = width_m / 2.0
-    line = LineString(centerline_xy)
-    poly = line.buffer(half, cap_style=1, join_style=1)  # round caps/joins
-    poly = poly.simplify(tolerance=1.0)  # remove spiky vertices
-    ext = poly.exterior
-    return list(ext.coords.xy[0]), list(ext.coords.xy[1])
+    # Compute segment distances
+    dx = np.diff(x)
+    dy = np.diff(y)
+    segment_dist = np.sqrt(dx**2 + dy**2)
+
+    # Remove spikes (segments longer than threshold)
+    spike_mask = segment_dist > spike_threshold_m
+    if np.any(spike_mask):
+        spike_indices = np.where(spike_mask)[0]
+        print(f"  Removing {len(spike_indices)} spikes (>{spike_threshold_m}m)")
+
+        # Keep only non-spike segments
+        keep_mask = np.ones(len(x), dtype=bool)
+        keep_mask[spike_indices + 1] = False  # Remove the point after the spike
+        x = x[keep_mask]
+        y = y[keep_mask]
+
+        # Recalculate distances
+        dx = np.diff(x)
+        dy = np.diff(y)
+        segment_dist = np.sqrt(dx**2 + dy**2)
+
+    # Remove duplicates (zero distance)
+    duplicate_mask = segment_dist < 1e-6
+    if np.any(duplicate_mask):
+        dup_indices = np.where(duplicate_mask)[0]
+        print(f"  Removing {len(dup_indices)} duplicate points")
+
+        keep_mask = np.ones(len(x), dtype=bool)
+        keep_mask[dup_indices + 1] = False
+        x = x[keep_mask]
+        y = y[keep_mask]
+
+        # Recalculate distances
+        dx = np.diff(x)
+        dy = np.diff(y)
+        segment_dist = np.sqrt(dx**2 + dy**2)
+
+    # Compute cumulative distance
+    cumulative_dist = np.concatenate([[0], np.cumsum(segment_dist)])
+    total_distance = cumulative_dist[-1]
+
+    print(f"  Total track length: {total_distance:.1f}m")
+    print(f"  Original points: {len(x)}")
+
+    # Create uniform distance stations
+    num_stations = int(np.ceil(total_distance / step_m)) + 1
+    uniform_dist = np.linspace(0, total_distance, num_stations)
+
+    # Interpolate x and y at uniform distances
+    interp_x = interp1d(
+        cumulative_dist, x, kind="linear", bounds_error=False, fill_value="extrapolate"
+    )
+    interp_y = interp1d(
+        cumulative_dist, y, kind="linear", bounds_error=False, fill_value="extrapolate"
+    )
+
+    x_resampled = interp_x(uniform_dist)
+    y_resampled = interp_y(uniform_dist)
+
+    print(f"  Resampled to {len(x_resampled)} points (step={step_m}m)")
+
+    return x_resampled, y_resampled, uniform_dist
+
+
+def smooth_periodic(x, y, window_length=31, polyorder=3, wrap_count=25):
+    """
+    Apply Savitzky-Golay smoothing with periodic wrapping to avoid endpoint kink.
+
+    Args:
+        x: x coordinates
+        y: y coordinates
+        window_length: Smoothing window size (must be odd)
+        polyorder: Polynomial order for Savitzky-Golay
+        wrap_count: Number of points to wrap from each end
+
+    Returns:
+        tuple: (x_smooth, y_smooth)
+    """
+    if window_length % 2 == 0:
+        window_length += 1  # Must be odd
+
+    if window_length >= len(x):
+        print(
+            f"  Warning: Window ({window_length}) >= points ({len(x)}), reducing to {len(x) // 3 | 1}"
+        )
+        window_length = (len(x) // 3) | 1  # Make odd
+        if window_length < 5:
+            print("  Warning: Too few points for smoothing, skipping")
+            return x, y
+
+    # Wrap points for periodic smoothing
+    x_wrapped = np.concatenate([x[-wrap_count:], x, x[:wrap_count]])
+    y_wrapped = np.concatenate([y[-wrap_count:], y, y[:wrap_count]])
+
+    # Apply Savitzky-Golay filter
+    x_smooth_wrapped = savgol_filter(
+        x_wrapped, window_length, polyorder, mode="nearest"
+    )
+    y_smooth_wrapped = savgol_filter(
+        y_wrapped, window_length, polyorder, mode="nearest"
+    )
+
+    # Extract the middle (unwrap)
+    x_smooth = x_smooth_wrapped[wrap_count:-wrap_count]
+    y_smooth = y_smooth_wrapped[wrap_count:-wrap_count]
+
+    print(f"  Applied Savitzky-Golay (window={window_length}, poly={polyorder})")
+
+    return x_smooth, y_smooth
 
 
 def generate_track_outline(
-    telemetry_df, vehicle_number=None, lap_number=None, smoothing=0.001
+    telemetry_df,
+    vehicle_number=None,
+    lap_number=None,
+    resample_step_m=2.0,
+    spike_threshold_m=10.0,
+    savgol_window=31,
+    savgol_poly=3,
+    wrap_count=25,
 ):
     """
-    Generate track outline from GPS coordinates.
+    Generate track outline from GPS coordinates with distance-based smoothing.
 
     Args:
         telemetry_df: DataFrame with GPS coordinates (x_meters, y_meters)
         vehicle_number: Specific vehicle to use (default: fastest driver)
         lap_number: Specific lap to use (default: best lap for vehicle)
-        smoothing: Smoothing parameter for UnivariateSpline (default: 0.001)
+        resample_step_m: Target spacing for resampling in meters (default: 2.0)
+        spike_threshold_m: Maximum segment length before considering it a spike (default: 10.0)
+        savgol_window: Savitzky-Golay window size (default: 31)
+        savgol_poly: Savitzky-Golay polynomial order (default: 3)
+        wrap_count: Points to wrap for periodic smoothing (default: 25)
 
     Returns:
         tuple: (smoothed_x, smoothed_y, fig) - smoothed coordinates and Plotly figure
     """
     # If no vehicle specified, use fastest driver from the data
     if vehicle_number is None:
-        # Use first vehicle with data as default (we'll identify fastest later)
         vehicle_number = telemetry_df["vehicle_number"].iloc[0]
         print(f"Using vehicle #{vehicle_number}")
 
@@ -70,61 +186,63 @@ def generate_track_outline(
     x = lap_data["x_meters"].values
     y = lap_data["y_meters"].values
 
-    # Close the loop by adding first point at end
-    x = np.append(x, x[0])
-    y = np.append(y, y[0])
+    # Phase 1: Resample by distance
+    print("\nPhase 1: Distance-based resampling")
+    x_resampled, y_resampled, distances = resample_by_distance(
+        x, y, step_m=resample_step_m, spike_threshold_m=spike_threshold_m
+    )
 
-    # Apply smoothing with UnivariateSpline
-    print(f"Applying smoothing (s={smoothing})...")
+    # Phase 2: Smooth with periodic wrapping
+    print("\nPhase 2: Periodic smoothing")
+    x_smooth, y_smooth = smooth_periodic(
+        x_resampled,
+        y_resampled,
+        window_length=savgol_window,
+        polyorder=savgol_poly,
+        wrap_count=wrap_count,
+    )
 
-    # Create parameter t (0 to 1) for spline
-    t = np.linspace(0, 1, len(x))
+    # Close the loop for visualization (add first point at end)
+    x_smooth = np.append(x_smooth, x_smooth[0])
+    y_smooth = np.append(y_smooth, y_smooth[0])
 
-    # Fit splines for x and y separately
-    try:
-        spline_x = UnivariateSpline(t, x, s=smoothing * len(x), k=3)
-        spline_y = UnivariateSpline(t, y, s=smoothing * len(y), k=3)
-
-        # Generate smooth points
-        t_smooth = np.linspace(0, 1, len(x) * 2)  # 2x points for smoother line
-        x_smooth = spline_x(t_smooth)
-        y_smooth = spline_y(t_smooth)
-
-        print(f"Smoothed to {len(x_smooth)} points")
-    except Exception as e:
-        print(f"Warning: Smoothing failed ({e}), using raw points")
-        x_smooth = x
-        y_smooth = y
-
-    # Build track surface polygon (12m width)
-    print("Building track surface polygon (12m width)...")
-    centerline_xy = list(zip(x_smooth, y_smooth))
-    poly_x, poly_y = build_track_surface(centerline_xy, width_m=12.0)
+    print(f"\n✓ Final smoothed track: {len(x_smooth)} points")
 
     # Create Plotly figure with dark theme
     fig = go.Figure()
 
-    # Add track surface (filled polygon, behind everything)
-    fig.add_trace(
-        go.Scatter(
-            x=poly_x,
-            y=poly_y,
-            mode="lines",
-            fill="toself",
-            fillcolor="rgba(255,255,255,0.07)",
-            line=dict(color="rgba(220,220,220,0.2)", width=1),
-            name="Track surface",
-            hoverinfo="skip",
-        )
-    )
-
-    # Add centerline (on top of surface)
+    # Layered stroke ribbon (no polygons, just line widths)
+    # Layer 1: Thick dark gray base (creates visual track width) - DOUBLED for visibility test
     fig.add_trace(
         go.Scatter(
             x=x_smooth,
             y=y_smooth,
             mode="lines",
-            line=dict(color="#5cf", width=3),
+            line=dict(color="rgba(100,100,100,0.4)", width=46),
+            name="Track base",
+            hoverinfo="skip",
+        )
+    )
+
+    # Layer 2: Medium lighter gray (creates edge definition) - DOUBLED for visibility test
+    fig.add_trace(
+        go.Scatter(
+            x=x_smooth,
+            y=y_smooth,
+            mode="lines",
+            line=dict(color="rgba(150,150,150,0.3)", width=32),
+            name="Track inner",
+            hoverinfo="skip",
+        )
+    )
+
+    # Layer 3: Thin cyan centerline (crisp reference line)
+    fig.add_trace(
+        go.Scatter(
+            x=x_smooth,
+            y=y_smooth,
+            mode="lines",
+            line=dict(color="#5cf", width=2),
             name="Centerline",
             hovertemplate="x: %{x:.1f}m<br>y: %{y:.1f}m<extra></extra>",
         )

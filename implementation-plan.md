@@ -188,17 +188,19 @@ YOU MUST NOT VIOLATE THIS STRUCTURE, if during your progress you realize we need
 - [x] Write `src/brake_detection.py` with function `detect_brake_events()`
 - [x] Implement rising-edge detection (transition from not braking to braking)
 - [x] Test brake detection (verified: 5,309 events, rear leads 85.2%)
-- [ ] Select one driver, one clean lap for visualization
-- [ ] Overlay brake onset points as colored dots on track from Step 3
-- [ ] Save to `data/visualizations/step4_brake_overlay.html`
-- [ ] Show to Edu (open HTML file in browser) - should see ~17 distinct brake clusters + pit lane brakes
+- [x] Select one driver, one clean lap for visualization
+- [x] Overlay brake onset points as colored dots on track from Step 3
+- [x] Save to `data/visualizations/step4_brake_overlay.html`
+- [x] Show to Edu (open HTML file in browser) - coordinate alignment issue identified and resolved
 
 **Files Created**:
 - `src/brake_detection.py` - Brake event detection with rising-edge logic ✅
 - `src/test_brake_detection.py` - Test script ✅
-- `data/visualizations/step4_brake_overlay.html` - Track with brake points (pending)
+- `src/generate_brake_overlay.py` - Step 4 visualization runner ✅
+- `data/visualizations/step4_brake_overlay.html` - Track with brake points ✅
+- `data/visualizations/brake_diagnostic.html` - Brake pressure diagnostic plot (used for investigation) ✅
 
-**🛑 Checkpoint: Get feedback from Edu - do brake points look reasonable?**
+**🛑 Checkpoint: ✅ COMPLETED - coordinate system issue resolved with ChatGPT**
 
 ---
 

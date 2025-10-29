@@ -1,0 +1,104 @@
+[
+  {
+    "corner_number": 1,
+    "x_meters": 535421.0,
+    "y_meters": 3710391.6799999997,
+    "label": "1"
+  },
+  {
+    "corner_number": 2,
+    "x_meters": 535477.2200000001,
+    "y_meters": 3710517.66,
+    "label": "2"
+  },
+  {
+    "corner_number": 3,
+    "x_meters": 535443.83,
+    "y_meters": 3710527.32,
+    "label": "3"
+  },
+  {
+    "corner_number": 4,
+    "x_meters": 535392.0,
+    "y_meters": 3710248.38,
+    "label": "4"
+  },
+  {
+    "corner_number": 5,
+    "x_meters": 535638.2999999999,
+    "y_meters": 3710595.66,
+    "label": "5"
+  },
+  {
+    "corner_number": 6,
+    "x_meters": 535544.13,
+    "y_meters": 3710620.1799999997,
+    "label": "6"
+  },
+  {
+    "corner_number": 7,
+    "x_meters": 535526.6,
+    "y_meters": 3710567.94,
+    "label": "7"
+  },
+  {
+    "corner_number": 8,
+    "x_meters": 535640.9299999999,
+    "y_meters": 3710456.16,
+    "label": "8"
+  },
+  {
+    "corner_number": 9,
+    "x_meters": 535574.4500000001,
+    "y_meters": 3710457.16,
+    "label": "9"
+  },
+  {
+    "corner_number": 10,
+    "x_meters": 535541.46,
+    "y_meters": 3710330.22,
+    "label": "10"
+  },
+  {
+    "corner_number": 11,
+    "x_meters": 535310.4199999999,
+    "y_meters": 3710374.44,
+    "label": "11"
+  },
+  {
+    "corner_number": 12,
+    "x_meters": 535340.4,
+    "y_meters": 3710388.2600000002,
+    "label": "12"
+  },
+  {
+    "corner_number": 13,
+    "x_meters": 535236.09,
+    "y_meters": 3710160.84,
+    "label": "13"
+  },
+  {
+    "corner_number": 14,
+    "x_meters": 534917.58,
+    "y_meters": 3710188.44,
+    "label": "14"
+  },
+  {
+    "corner_number": 15,
+    "x_meters": 535043.61,
+    "y_meters": 3710196.72,
+    "label": "15"
+  },
+  {
+    "corner_number": 16,
+    "x_meters": 535150.96,
+    "y_meters": 3710225.4200000004,
+    "label": "16"
+  },
+  {
+    "corner_number": 17,
+    "x_meters": 535207.71,
+    "y_meters": 3710241.64,
+    "label": "17"
+  }
+]

@@ -31,7 +31,11 @@ def main():
         df,
         vehicle_number=13,  # Fastest driver from Step 2
         lap_number=None,  # Auto-select best lap
-        smoothing=0.01,  # Moderate smoothing (10x more than before)
+        resample_step_m=2.0,  # Resample every 2m
+        spike_threshold_m=10.0,  # Remove GPS spikes >10m
+        savgol_window=31,  # Savitzky-Golay window
+        savgol_poly=3,  # Polynomial order
+        wrap_count=25,  # Points to wrap for periodic smoothing
     )
     print()
 
