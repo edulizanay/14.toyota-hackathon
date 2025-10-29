@@ -13,6 +13,12 @@
   - **FINAL SOLUTION**: Layered strokes (18px dark gray base + 12px lighter gray + 2px cyan centerline) → clean ribbon, no polygons
 - Smoothing increased from s=0.001 to s=0.01 for smoother centerline per Edu's request
 - **P95→P5 correction caught before Step 4**: Changed from P95 (42.84 bar, top 5% only) to P5 of positive pressures (3.81 bar) for brake onset detection. Rising-edge detection: 5,309 events, rear brake leads 85.2%
+
+### Track surface update (donut band)
+- Replaced pixel-width strokes and fixed-width buffer with data-driven donut band (annulus) built from all telemetry positions.
+- Method: project points to centerline, compute signed offsets; per-station half-widths from q90, smoothed; build left/right edges and fill between.
+- Validations (console): area, implied mean width, width p05/p50/p95, sample count. Temp check script: `temp/check_annulus_coverage.py` prints % of brake events inside band.
+- Current stats: implied mean width ~6.4m (p50=6.0m), coverage ~93% on sampled brake points. Tune by raising quantile or min_width if we want a thicker ribbon.
 - **Step 3 refinement**: Replaced UnivariateSpline with distance-based resampling + Savitzky-Golay smoothing:
   - Resample to uniform 2m spacing (removes GPS jitter)
   - Remove spikes >10m and duplicate points
@@ -32,4 +38,10 @@
   - Corner numbers displayed as white circles with black text
   - Pit lane extracted from lap 2 (1038m) and displayed as dashed yellow line
   - Data stored in: corner_labels.json, pit_lane.json
-  - Awaiting manual adjustment of positions
+  - Applied pixel-based position adjustments
+- **Interactive label editor created**: temp/label_editor.html
+  - Click-to-place interface for repositioning all 17 corner labels
+  - Edit mode for individual corner adjustments
+  - Downloads updated corner_labels.json
+  - Self-contained HTML (no server needed)
+- **Git commit created**: Steps 3-5a completed and committed to main branch

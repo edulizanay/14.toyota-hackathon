@@ -7,6 +7,8 @@ import plotly.graph_objects as go
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
 from pathlib import Path
+from shapely.geometry import LineString, Polygon
+from scipy.spatial import cKDTree
 
 
 def resample_by_distance(x, y, step_m=2.0, spike_threshold_m=10.0):
@@ -134,6 +136,146 @@ def smooth_periodic(x, y, window_length=31, polyorder=3, wrap_count=25):
     return x_smooth, y_smooth
 
 
+def _compute_normals(x, y):
+    """
+    Compute unit tangents and normals along a polyline.
+
+    Returns:
+        t_hat (N,2), n_hat (N,2)
+    """
+    dx = np.gradient(x)
+    dy = np.gradient(y)
+    mag = np.hypot(dx, dy)
+    mag[mag == 0] = 1.0
+    tx = dx / mag
+    ty = dy / mag
+    # Rotate tangent 90° CCW to get normal
+    nx = -ty
+    ny = tx
+    t_hat = np.column_stack([tx, ty])
+    n_hat = np.column_stack([nx, ny])
+    return t_hat, n_hat
+
+
+def build_data_driven_band(
+    telemetry_df,
+    x_center,
+    y_center,
+    sample_fraction=0.25,
+    q_high=0.90,
+    min_width=6.0,
+    max_width=16.0,
+):
+    """
+    Build a meter-true track band (donut) using data-driven half-widths
+    derived from signed cross-track offsets of telemetry positions.
+
+    Args:
+        telemetry_df: DataFrame with x_meters, y_meters (and optional speed)
+        x_center, y_center: centerline arrays WITHOUT duplicate closing point
+        sample_fraction: fraction of telemetry points to sample for speed
+        q_high: high quantile used for half-width estimation per side
+        min_width, max_width: clamps for total width in meters
+
+    Returns:
+        (x_left, y_left, x_right, y_right, stats)
+    """
+    # Prepare centerline and normals
+    x_c = np.asarray(x_center)
+    y_c = np.asarray(y_center)
+    n_stations = len(x_c)
+    _, n_hat = _compute_normals(x_c, y_c)
+
+    # KD-tree for nearest station
+    tree = cKDTree(np.column_stack([x_c, y_c]))
+
+    # Sample telemetry for efficiency
+    df_pos = telemetry_df[["x_meters", "y_meters", "speed"]].copy() if "speed" in telemetry_df.columns else telemetry_df[["x_meters", "y_meters"]].copy()
+    df_pos = df_pos.dropna(subset=["x_meters", "y_meters"]).sample(frac=sample_fraction, random_state=42)
+
+    # Optional: basic speed gate to reduce pit/garage noise
+    if "speed" in df_pos.columns:
+        df_pos["speed"] = pd.to_numeric(df_pos["speed"], errors="coerce")
+        df_pos = df_pos[df_pos["speed"].fillna(100) > 30]
+
+    pts = df_pos[["x_meters", "y_meters"]].to_numpy()
+    dists, idxs = tree.query(pts, k=1)
+
+    # Vector from centerline to point
+    vc = pts - np.column_stack([x_c[idxs], y_c[idxs]])
+    # Signed offset using local normal
+    d_signed = np.einsum("ij,ij->i", vc, n_hat[idxs])
+
+    # Aggregate by station index
+    df_proj = pd.DataFrame({"idx": idxs, "d": d_signed})
+
+    # Positive offsets (left), negative (right)
+    left_q = df_proj[df_proj["d"] > 0].groupby("idx")["d"].quantile(q_high)
+    right_q = (-df_proj[df_proj["d"] < 0]["d"]).groupby(idxs[df_proj["d"] < 0]).quantile(q_high)
+
+    # Initialize widths
+    wL = np.full(n_stations, np.nan)
+    wR = np.full(n_stations, np.nan)
+    wL[left_q.index.values] = left_q.values
+    wR[right_q.index.values] = right_q.values
+
+    # Fill gaps by nearest neighbor then forward/backward fill
+    def _fill_nan(a):
+        s = pd.Series(a)
+        s = s.interpolate(limit_direction="both")
+        # If still NaN (all-NaN series), default to median later
+        return s.to_numpy()
+
+    wL = _fill_nan(wL)
+    wR = _fill_nan(wR)
+
+    # If arrays are still NaN entirely, set defaults
+    if np.all(np.isnan(wL)):
+        wL[:] = min_width / 2
+    if np.all(np.isnan(wR)):
+        wR[:] = min_width / 2
+
+    # Total width and clamps
+    total_w = wL + wR
+    # Replace any remaining NaNs with median
+    if np.any(np.isnan(total_w)):
+        med = np.nanmedian(total_w)
+        total_w[np.isnan(total_w)] = med if not np.isnan(med) else (min_width + max_width) / 2
+    total_w = np.clip(total_w, min_width, max_width)
+
+    # Balance sides proportionally where one side is missing
+    # Keep original ratios where available; otherwise split evenly
+    ratio = np.divide(wL, wL + wR, out=np.full_like(wL, 0.5, dtype=float), where=(wL + wR) != 0)
+    wL = ratio * total_w
+    wR = (1 - ratio) * total_w
+
+    # Smooth half-widths along stations
+    window = min(51, (len(total_w) // 3) | 1)
+    try:
+        wL_s = savgol_filter(wL, window, 3, mode="nearest")
+        wR_s = savgol_filter(wR, window, 3, mode="nearest")
+    except Exception:
+        wL_s, wR_s = wL, wR
+
+    # Build edges
+    x_left = x_c + wL_s * n_hat[:, 0]
+    y_left = y_c + wL_s * n_hat[:, 1]
+    x_right = x_c - wR_s * n_hat[:, 0]
+    y_right = y_c - wR_s * n_hat[:, 1]
+
+    stats = {
+        "width_p05": float(np.percentile(total_w, 5)),
+        "width_p50": float(np.percentile(total_w, 50)),
+        "width_p95": float(np.percentile(total_w, 95)),
+        "min_width": float(np.min(total_w)),
+        "max_width": float(np.max(total_w)),
+        "stations": int(n_stations),
+        "samples_used": int(len(df_pos)),
+    }
+
+    return x_left, y_left, x_right, y_right, stats
+
+
 def generate_track_outline(
     telemetry_df,
     vehicle_number=None,
@@ -211,32 +353,55 @@ def generate_track_outline(
     # Create Plotly figure with dark theme
     fig = go.Figure()
 
-    # Layered stroke ribbon (no polygons, just line widths)
-    # Layer 1: Thick dark gray base (creates visual track width) - DOUBLED for visibility test
+    # Data-driven donut band (annulus) from all telemetry positions
+    # Single source of truth: load if saved, else compute and save
+    base_dir = Path(__file__).parent.parent
+    band_path = base_dir / "data" / "gps-tracks" / "track_band.csv"
+    if band_path.exists():
+        print(f"  Loading precomputed track band: {band_path}")
+        x_left, y_left, x_right, y_right = load_track_band(band_path)
+        # Stats will be computed from polygon below
+        wstats = None
+    else:
+        print("  Computing track band from telemetry (first run)...")
+        x_left, y_left, x_right, y_right, wstats = build_data_driven_band(
+            telemetry_df, x_smooth[:-1], y_smooth[:-1]
+        )
+        save_track_band(x_left, y_left, x_right, y_right, band_path)
+        print(f"  ✓ Saved track band to: {band_path}")
+
+    # Build polygon ring: left edge forward, right edge reversed
+    x_ring = np.concatenate([x_left, x_right[::-1], [x_left[0]]])
+    y_ring = np.concatenate([y_left, y_right[::-1], [y_left[0]]])
+
+    # Validation logs using polygon area
+    track_length_m = float(distances[-1]) if 'distances' in locals() else np.nan
+    poly = Polygon(np.column_stack([x_ring, y_ring]))
+    surface_area = float(poly.area)
+    implied_width = surface_area / track_length_m if track_length_m == track_length_m else np.nan
+    print(f"  Track surface area: {surface_area:.0f} m^2")
+    if track_length_m == track_length_m:
+        print(f"  Implied avg width: {implied_width:.1f} m" + (f" (p50 {wstats['width_p50']:.1f} m)" if wstats else ""))
+    if wstats:
+        print(
+            f"  Width stats (m): p05 {wstats['width_p05']:.1f}, p50 {wstats['width_p50']:.1f}, p95 {wstats['width_p95']:.1f}"
+        )
+
+    # Plot donut band
     fig.add_trace(
         go.Scatter(
-            x=x_smooth,
-            y=y_smooth,
+            x=x_ring,
+            y=y_ring,
             mode="lines",
-            line=dict(color="rgba(100,100,100,0.4)", width=46),
-            name="Track base",
+            fill="toself",
+            line=dict(color="rgba(100,100,100,0.35)", width=1),
+            fillcolor="rgba(255,255,255,0.07)",
+            name="Track surface",
             hoverinfo="skip",
         )
     )
 
-    # Layer 2: Medium lighter gray (creates edge definition) - DOUBLED for visibility test
-    fig.add_trace(
-        go.Scatter(
-            x=x_smooth,
-            y=y_smooth,
-            mode="lines",
-            line=dict(color="rgba(150,150,150,0.3)", width=32),
-            name="Track inner",
-            hoverinfo="skip",
-        )
-    )
-
-    # Layer 3: Thin cyan centerline (crisp reference line)
+    # Thin cyan centerline (crisp reference line)
     fig.add_trace(
         go.Scatter(
             x=x_smooth,
@@ -289,3 +454,36 @@ def save_track_data(x_smooth, y_smooth, output_path):
     df_track.to_csv(output_path, index=False)
 
     print(f"✓ Saved track centerline to: {output_path}")
+
+
+def save_track_band(x_left, y_left, x_right, y_right, output_path):
+    """
+    Save track band edges to CSV as single table with columns:
+    left_x,left_y,right_x,right_y per station index.
+    """
+    df = pd.DataFrame(
+        {
+            "left_x": np.asarray(x_left),
+            "left_y": np.asarray(y_left),
+            "right_x": np.asarray(x_right),
+            "right_y": np.asarray(y_right),
+        }
+    )
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(output_path, index=False)
+
+
+def load_track_band(input_path):
+    """
+    Load track band edges from CSV saved by save_track_band().
+
+    Returns: x_left, y_left, x_right, y_right (numpy arrays)
+    """
+    df = pd.read_csv(input_path)
+    return (
+        df["left_x"].to_numpy(),
+        df["left_y"].to_numpy(),
+        df["right_x"].to_numpy(),
+        df["right_y"].to_numpy(),
+    )
