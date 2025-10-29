@@ -150,7 +150,7 @@ YOU MUST NOT VIOLATE THIS STRUCTURE, if during your progress you realize we need
 
 ## Phase 2: Track Visualization
 
-### Step 3: Generate Track Outline
+### Step 3: Generate Track Outline ✅ COMPLETED
 **Goal**: Create visual representation of Barber track from GPS data
 
 **Tasks**:
@@ -159,17 +159,18 @@ YOU MUST NOT VIOLATE THIS STRUCTURE, if during your progress you realize we need
 - [x] Extract one clean lap of GPS points (car #13, lap #4 with most complete data)
 - [x] Plot GPS trace as line using Plotly
 - [x] Apply smoothing: scipy `UnivariateSpline` with s=0.001 (2,962 points → 5,926 smoothed)
-- [x] Add dark theme styling (#0a0a0a background, #00ff00 track line)
+- [x] Add dark theme styling (#0a0a0a background)
+- [x] Add track surface width: 12m polygon using shapely buffer (fillcolor rgba(255,255,255,0.07))
+- [x] Overlay centerline on track surface (#5cf, width=3)
 - [x] Save to `data/visualizations/step3_track_outline.html`
-- [ ] Get Edu's feedback on track appearance
 
 **Files Created**:
-- `src/track_rendering.py` - Track visualization utilities
+- `src/track_rendering.py` - Track visualization with `build_track_surface()` for 12m width polygon
 - `src/generate_track.py` - Script to execute track generation
 - `data/gps-tracks/track_centerline.csv` - Smoothed GPS trace (5,926 points)
-- `data/visualizations/step3_track_outline.html` - Interactive track plot
+- `data/visualizations/step3_track_outline.html` - Interactive track with surface and centerline
 
-**🛑 Checkpoint: Awaiting Edu's feedback on track appearance**
+**🛑 Checkpoint**: ✅ Track surface complete - ready for brake point overlay
 
 ---
 
