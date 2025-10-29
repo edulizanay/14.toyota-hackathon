@@ -31,7 +31,7 @@ def main():
         df,
         vehicle_number=13,  # Fastest driver from Step 2
         lap_number=None,  # Auto-select best lap
-        smoothing=0.001,  # Light smoothing
+        smoothing=0.01,  # Moderate smoothing (10x more than before)
     )
     print()
 

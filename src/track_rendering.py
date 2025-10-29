@@ -22,7 +22,7 @@ def build_track_surface(centerline_xy, width_m=12.0):
     """
     half = width_m / 2.0
     line = LineString(centerline_xy)
-    poly = line.buffer(half, cap_style=2, join_style=2)  # square caps/joints
+    poly = line.buffer(half, cap_style=1, join_style=1)  # round caps/joins
     poly = poly.simplify(tolerance=1.0)  # remove spiky vertices
     ext = poly.exterior
     return list(ext.coords.xy[0]), list(ext.coords.xy[1])
