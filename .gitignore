@@ -1,0 +1,38 @@
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Data files (too large for git)
+barber/*.csv
+barber/not-used/
+data/telemetry-raw/*.csv
+*.csv
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.bak
