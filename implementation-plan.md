@@ -142,6 +142,8 @@ YOU MUST NOT VIOLATE THIS STRUCTURE, if during your progress you realize we need
 
 **Results**: Processed 1.5GB → 114.3 MB, 20 vehicles, fastest driver car #13 (1:37.428)
 
+**⚠️ CORRECTION APPLIED**: Initial P95 threshold (42.84 bar) was incorrect for brake onset detection. Corrected to P5 of positive pressures (3.81 bar) before Step 4. See brake_detection.py for rising-edge detection implementation.
+
 **🛑 Checkpoint**: ✅ Data loaded successfully with all required columns
 
 ---
@@ -176,19 +178,24 @@ YOU MUST NOT VIOLATE THIS STRUCTURE, if during your progress you realize we need
 ### Step 4: Plot All Brakes for Single Driver, Single Lap
 **Goal**: Validate brake detection and GPS correlation
 
+**Corrected Approach** (P5 with rising-edge detection):
+- Use P5 of positive pressures (3.81 bar) to detect brake onset
+- Combine front/rear: `max(pbrake_f, pbrake_r)` with rising-edge detection
+- One event per brake application (not every sample during braking)
+
 **Tasks**:
-- [ ] Write `src/brake_detection.py` with function `detect_brake_events()`
-- [ ] Select one driver, one clean lap
-- [ ] Apply P95 threshold: brake event when `pbrake_f > P95` OR `pbrake_r > P95`
-- [ ] Get GPS coordinates at each brake timestamp
-- [ ] Overlay brake points as colored dots on track from Step 3
+- [x] Write `src/brake_detection.py` with function `detect_brake_events()`
+- [x] Implement rising-edge detection (transition from not braking to braking)
+- [x] Test brake detection (verified: 5,309 events, rear leads 85.2%)
+- [ ] Select one driver, one clean lap for visualization
+- [ ] Overlay brake onset points as colored dots on track from Step 3
 - [ ] Save to `data/visualizations/step4_brake_overlay.html`
 - [ ] Show to Edu (open HTML file in browser) - should see ~17 distinct brake clusters + pit lane brakes
-- [ ] If too many scattered points or missing zones, adjust percentile (try P96, P94, etc.) and iterate until Edu approves
 
 **Files Created**:
-- `src/brake_detection.py` - Brake event detection utilities
-- `data/visualizations/step4_brake_overlay.html` - Track with brake points
+- `src/brake_detection.py` - Brake event detection with rising-edge logic ✅
+- `src/test_brake_detection.py` - Test script ✅
+- `data/visualizations/step4_brake_overlay.html` - Track with brake points (pending)
 
 **🛑 Checkpoint: Get feedback from Edu - do brake points look reasonable?**
 

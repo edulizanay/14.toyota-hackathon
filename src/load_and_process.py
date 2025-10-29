@@ -23,10 +23,11 @@ def main():
     df_telemetry = load_telemetry(TELEMETRY_PATH, chunk_size=500000)
     print()
 
-    # Calculate brake threshold
-    print("STEP 2: Calculating P95 brake pressure threshold...")
+    # Calculate brake threshold (corrected to use P5 of positive pressures)
+    print("STEP 2: Calculating brake pressure threshold...")
     print("-" * 80)
-    threshold = calculate_brake_threshold(df_telemetry, percentile=95)
+    print("Using P5 of positive pressures to detect brake onset (discard lowest 5% as noise)")
+    threshold = calculate_brake_threshold(df_telemetry, percentile=5)
     print()
 
     # Load USAC results

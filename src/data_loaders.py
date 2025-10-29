@@ -134,13 +134,14 @@ def load_usac_results(results_path):
     return df
 
 
-def calculate_brake_threshold(df, percentile=95):
+def calculate_brake_threshold(df, percentile=5):
     """
-    Calculate brake pressure threshold (P95 by default).
+    Calculate brake pressure threshold to detect brake onset.
+    Uses P5 (5th percentile) of positive pressures to discard lowest 5% as noise.
 
     Args:
         df: Telemetry DataFrame with pbrake_f and pbrake_r columns
-        percentile: Percentile threshold (default 95)
+        percentile: Percentile threshold (default 5 to discard lowest 5%)
 
     Returns:
         Threshold value in bar
@@ -148,9 +149,21 @@ def calculate_brake_threshold(df, percentile=95):
     # Combine front and rear brake pressures
     all_brake_pressures = pd.concat([df["pbrake_f"].dropna(), df["pbrake_r"].dropna()])
 
-    threshold = np.percentile(all_brake_pressures, percentile)
+    # Filter to positive pressures only (zeros are not braking)
+    positive_pressures = all_brake_pressures[all_brake_pressures > 0]
 
-    print(f"P{percentile} brake pressure threshold: {threshold:.2f} bar")
+    # Calculate P5 of positive pressures (discard lowest 5% as noise)
+    threshold = np.percentile(positive_pressures, percentile)
+
+    print(
+        f"P{percentile} brake pressure threshold (positive pressures only): {threshold:.2f} bar"
+    )
     print(f"Total brake pressure samples: {len(all_brake_pressures):,}")
+    print(
+        f"Positive brake pressure samples: {len(positive_pressures):,} ({100 * len(positive_pressures) / len(all_brake_pressures):.1f}%)"
+    )
+    print(
+        f"Zero/negative samples excluded: {len(all_brake_pressures) - len(positive_pressures):,}"
+    )
 
     return threshold
