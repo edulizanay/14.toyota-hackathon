@@ -195,10 +195,10 @@ def create_zone_focused_dashboard(
             & (brake_events_df["zone_id"].notna())
         ].copy()
 
-        # Winner gets white/grey styling and starts visible
+        # Winner gets white styling and starts visible
         is_winner = drv == reference_vehicle_number
         if is_winner:
-            driver_color = "rgba(200,200,200,0.8)"  # Light grey
+            driver_color = "rgba(255,255,255,0.9)"  # White (matches stroke)
             marker_line_color = "rgba(255,255,255,0.9)"
             marker_line_width = 2.5
             is_visible = True
@@ -238,10 +238,10 @@ def create_zone_focused_dashboard(
     for drv in driver_list:
         df_cent = centroids_df[centroids_df["vehicle_number"] == drv].copy()
 
-        # Winner gets white/grey styling, same as brake points
+        # Winner gets white styling, same as brake points
         is_winner = drv == reference_vehicle_number
         if is_winner:
-            driver_color = "rgba(200,200,200,0.8)"  # Light grey
+            driver_color = "rgba(255,255,255,0.9)"  # White (matches stroke)
             marker_line_color = "rgba(255,255,255,0.9)"
             marker_line_width = 2.5
         else:
