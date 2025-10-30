@@ -2,9 +2,36 @@
 # ABOUTME: Creates reference driver view and comparison dashboards
 
 import json
+import math
+import numpy as np
 import plotly.graph_objects as go
 from pathlib import Path
 from track_rendering import generate_track_outline
+
+
+def rotate_coordinates(x, y, angle_degrees):
+    """
+    Rotate 2D coordinates counterclockwise by angle_degrees.
+
+    Args:
+        x: x-coordinates (array-like)
+        y: y-coordinates (array-like)
+        angle_degrees: rotation angle in degrees (positive = counterclockwise)
+
+    Returns:
+        x_rot, y_rot: rotated coordinates
+    """
+    angle_rad = math.radians(angle_degrees)
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    x_rot = x * cos_a - y * sin_a
+    y_rot = x * sin_a + y * cos_a
+
+    return x_rot, y_rot
 
 BASE_DIR = Path(__file__).parent.parent
 BRAKE_EVENTS_CSV = BASE_DIR / "data" / "brake-analysis" / "brake_events.csv"
@@ -614,6 +641,29 @@ def create_zone_focused_dashboard(
     )
     print()
 
+    # Rotate track outline for better viewing angle
+    rotation_angle = -45.0  # Negative = clockwise
+    print(f"Rotating visualization by {abs(rotation_angle)}° clockwise...")
+    for trace in fig.data:
+        if trace.x is not None and trace.y is not None:
+            x_rot, y_rot = rotate_coordinates(trace.x, trace.y, rotation_angle)
+            trace.x = x_rot
+            trace.y = y_rot
+    print("✓ Rotated track outline")
+    print()
+
+    # Rotate brake event coordinates
+    brake_events_df = brake_events_df.copy()
+    x_rot, y_rot = rotate_coordinates(
+        brake_events_df["x_meters"].values,
+        brake_events_df["y_meters"].values,
+        rotation_angle
+    )
+    brake_events_df["x_meters"] = x_rot
+    brake_events_df["y_meters"] = y_rot
+    print("✓ Rotated brake event coordinates")
+    print()
+
     # 2) Zone colors
     zone_colors = {
         1: "#FF6B6B", 2: "#4ECDC4", 3: "#45B7D1", 4: "#96CEB4",
@@ -644,6 +694,7 @@ def create_zone_focused_dashboard(
             text=f"Z{int(zid)}", textposition="middle center",
             textfont=dict(size=11, color="black", family="Arial Black"),
             name=f"Zone {int(zid)}", showlegend=False, hoverinfo="skip",
+            visible=False,  # Hidden by default
         ))
     print(f"✓ Added {len(ref_brakes['zone_id'].dropna().unique())} zone badges")
     print()
@@ -656,8 +707,11 @@ def create_zone_focused_dashboard(
         corner_y = [c["y_meters"] for c in corner_labels]
         corner_text = [c["label"] for c in corner_labels]
 
+        # Rotate corner labels
+        corner_x_rot, corner_y_rot = rotate_coordinates(corner_x, corner_y, rotation_angle)
+
         fig.add_trace(go.Scatter(
-            x=corner_x, y=corner_y,
+            x=corner_x_rot, y=corner_y_rot,
             mode="markers+text",
             marker=dict(size=24, color="rgba(255,255,255,0.15)", line=dict(color="rgba(255,165,0,0.8)", width=2)),
             text=corner_text, textposition="middle center",
@@ -790,11 +844,27 @@ def create_zone_focused_dashboard(
         bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(255,165,0,0.4)", borderwidth=1,
         pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="orange"),
     )
+
+    axes_toggle_button = dict(
+        type="buttons",
+        direction="right",
+        buttons=[dict(
+            label="Axes",
+            method="relayout",
+            args=[{"xaxis.visible": True, "yaxis.visible": True}],
+            args2=[{"xaxis.visible": False, "yaxis.visible": False}],
+        )],
+        x=1.02, xanchor="left", y=0.14, yanchor="bottom",  # Bottom right, above corner labels
+        showactive=False,
+        bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(150,150,150,0.4)", borderwidth=1,
+        pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="rgba(150,150,150,0.9)"),
+    )
     print("✓ Created zone badges toggle button")
     print("✓ Created corner labels toggle button")
+    print("✓ Created axes toggle button")
     print()
 
-    # 10) Layout: add zone pills, zone badges toggle, and corner labels toggle, use legend for drivers
+    # 10) Layout: add zone pills, zone badges toggle, corner labels toggle, and axes toggle, use legend for drivers
     print("Finalizing layout...")
     fig.update_layout(
         title=f"Barber — Zone-Focused View<br><sub>Reference #{reference_vehicle_number} (white) | Click legend to toggle drivers</sub>",
@@ -808,6 +878,7 @@ def create_zone_focused_dashboard(
             ),
             zone_badges_toggle_button,  # Zone badges toggle
             corner_toggle_button,  # Corner labels toggle
+            axes_toggle_button,  # Axes toggle
         ],
         legend=dict(
             x=1.02, xanchor="left", y=1.0, yanchor="top",
