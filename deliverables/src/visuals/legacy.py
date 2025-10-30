@@ -14,7 +14,7 @@ and keyboard navigation which proved more usable.
 These are preserved as examples but not actively maintained. If you need them,
 they would need to be updated to use the new module structure:
 - Import from .track_outline instead of local functions
-- Import from .dashboards for ZONE_COLORS constant
+- Import from .dashboards for DRIVER_COLORS constant
 - Update paths to use parameters instead of module constants
 """
 

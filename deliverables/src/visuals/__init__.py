@@ -16,7 +16,7 @@ from .track_outline import (
 )
 
 from .dashboards import (
-    ZONE_COLORS,
+    DRIVER_COLORS,
     create_zone_focused_dashboard,
     render_zone_focus_dashboard,
 )
@@ -33,7 +33,7 @@ __all__ = [
     "load_centerline",
     "make_base_track_figure",
     # Dashboard functions
-    "ZONE_COLORS",
+    "DRIVER_COLORS",
     "create_zone_focused_dashboard",
     "render_zone_focus_dashboard",
 ]

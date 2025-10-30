@@ -10,17 +10,49 @@ from .geometry import rotate_coordinates
 from ..data_processing import compute_zone_bounds
 
 
-# Zone colors used across all dashboards
-ZONE_COLORS = {
-    1: "#FF6B6B",  # Red
-    2: "#4ECDC4",  # Teal
-    3: "#45B7D1",  # Light blue
-    4: "#96CEB4",  # Sage green
-    5: "#FFEAA7",  # Yellow
-    6: "#DDA15E",  # Orange
-    7: "#C77DFF",  # Purple
-    8: "#06FFA5",  # Mint
-}
+# Driver colors - large qualitative palette with distinct hues
+# Combines D3 Category10 + Category20 for up to 30 unique drivers
+_DRIVER_PALETTE = [
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#7f7f7f",
+    "#bcbd22",
+    "#17becf",
+    "#aec7e8",
+    "#ffbb78",
+    "#98df8a",
+    "#ff9896",
+    "#c5b0d5",
+    "#c49c94",
+    "#f7b6d2",
+    "#c7c7c7",
+    "#dbdb8d",
+    "#9edae5",
+    "#393b79",
+    "#637939",
+    "#8c6d31",
+    "#843c39",
+    "#7b4173",
+    "#5254a3",
+    "#8ca252",
+    "#bd9e39",
+    "#ad494a",
+    "#a55194",
+]
+
+
+def _get_driver_color(vehicle_number):
+    """Return color for a driver, cycling through palette if needed."""
+    return _DRIVER_PALETTE[(vehicle_number - 1) % len(_DRIVER_PALETTE)]
+
+
+# Build lookup dict for all reasonable vehicle numbers (1-99)
+DRIVER_COLORS = {i: _get_driver_color(i) for i in range(1, 100)}
 
 
 def create_zone_focused_dashboard(
@@ -37,7 +69,7 @@ def create_zone_focused_dashboard(
 
     Shows one zone at a time via horizontal zone pills.
     Uses axis range cropping (relayout) instead of trace visibility per zone.
-    Reference points in white, comparison driver in per-point zone colors.
+    Reference points in white, comparison drivers each in consistent driver colors.
 
     Args:
         telemetry_df: Full telemetry DataFrame for track rendering
@@ -100,37 +132,11 @@ def create_zone_focused_dashboard(
     print(f"✓ Calculated boundaries for {len(zone_order)} zones")
     print()
 
-    # 3) Zone badges
-    print("Adding zone badges...")
+    # 3) Get reference brake events
     ref_brakes = brake_events_df[
         (brake_events_df["vehicle_number"] == reference_vehicle_number)
         & (brake_events_df["zone_id"].notna())
     ].copy()
-
-    for zid in sorted(ref_brakes["zone_id"].dropna().unique()):
-        dfz = ref_brakes[ref_brakes["zone_id"] == zid]
-        cx, cy = dfz["x_meters"].mean(), dfz["y_meters"].mean()
-        fig.add_trace(
-            go.Scatter(
-                x=[cx],
-                y=[cy],
-                mode="markers+text",
-                marker=dict(
-                    size=28,
-                    color="rgba(255,255,255,0.9)",
-                    line=dict(color=ZONE_COLORS[int(zid)], width=3),
-                ),
-                text=f"Z{int(zid)}",
-                textposition="middle center",
-                textfont=dict(size=11, color="black", family="Arial Black"),
-                name=f"Zone {int(zid)}",
-                showlegend=False,
-                hoverinfo="skip",
-                visible=False,  # Hidden by default
-            )
-        )
-    print(f"✓ Added {len(ref_brakes['zone_id'].dropna().unique())} zone badges")
-    print()
 
     # 4) Corner labels (1-17)
     print("Loading corner labels...")
@@ -185,7 +191,7 @@ def create_zone_focused_dashboard(
     print(f"✓ Added {len(ref_brakes)} reference brake points (white)")
     print()
 
-    # 6) One comparison trace per driver (all zones), colored by zone_id
+    # 6) One comparison trace per driver (all zones), colored by driver
     print("Preparing comparison driver traces...")
     valid = driver_summary_df.dropna(subset=["fastest_lap_seconds"]).sort_values(
         "fastest_lap_seconds"
@@ -196,15 +202,12 @@ def create_zone_focused_dashboard(
         if int(v) != reference_vehicle_number
     ]
 
-    def color_for_zone(series):
-        return [ZONE_COLORS.get(int(z), "#999") for z in series.fillna(0).astype(int)]
-
     for drv in driver_list:
         df_drv = brake_events_df[
             (brake_events_df["vehicle_number"] == drv)
             & (brake_events_df["zone_id"].notna())
         ].copy()
-        colors = color_for_zone(df_drv["zone_id"])
+        driver_color = DRIVER_COLORS.get(drv, "#999")
         fig.add_trace(
             go.Scatter(
                 x=df_drv["x_meters"],
@@ -212,7 +215,7 @@ def create_zone_focused_dashboard(
                 mode="markers",
                 marker=dict(
                     size=10,
-                    color=colors,
+                    color=driver_color,
                     line=dict(color="rgba(255,255,255,0.7)", width=2),
                 ),
                 name=f"#{drv} ({valid[valid['vehicle_number'] == drv].iloc[0]['fastest_lap_time']})",
@@ -279,37 +282,13 @@ def create_zone_focused_dashboard(
     )
     print()
 
-    # 8) Corner labels and zone badges toggle buttons
+    # 8) Corner labels and axes toggle buttons
     print("Creating toggle buttons for labels...")
     # Find trace indices
     base_trace_count = len(fig.data) - len(driver_list)
-    zone_badges_indices = list(range(2, 10))  # Zone badges are traces 2-9 (8 zones)
     corner_labels_idx = (
         base_trace_count - 2
     )  # Corner labels is 2 traces before drivers (ref is -1)
-
-    zone_badges_toggle_button = dict(
-        type="buttons",
-        direction="right",
-        buttons=[
-            dict(
-                label="Zone Badges",
-                method="restyle",
-                args=[{"visible": True}, zone_badges_indices],
-                args2=[{"visible": False}, zone_badges_indices],
-            )
-        ],
-        x=0.98,
-        xanchor="right",
-        y=0.07,
-        yanchor="bottom",
-        showactive=False,
-        bgcolor="rgba(26,26,26,0.95)",
-        bordercolor="rgba(100,200,255,0.4)",
-        borderwidth=1,
-        pad=dict(r=4, l=4, t=4, b=4),
-        font=dict(size=11, color="rgba(100,200,255,0.9)"),
-    )
 
     corner_toggle_button = dict(
         type="buttons",
@@ -356,12 +335,11 @@ def create_zone_focused_dashboard(
         pad=dict(r=4, l=4, t=4, b=4),
         font=dict(size=11, color="rgba(150,150,150,0.9)"),
     )
-    print("✓ Created zone badges toggle button")
     print("✓ Created corner labels toggle button")
     print("✓ Created axes toggle button")
     print()
 
-    # 9) Layout: add zone pills, toggles, use legend for drivers
+    # 9) Layout: add toggles (zone pills moved to external toolbar), use legend for drivers
     print("Finalizing layout...")
     fig.update_layout(
         title=dict(
@@ -372,23 +350,6 @@ def create_zone_focused_dashboard(
             xanchor="center",
         ),
         updatemenus=[
-            dict(  # Zone pills
-                type="buttons",
-                direction="right",
-                buttons=zone_buttons,
-                x=0.5,
-                xanchor="center",
-                y=0.88,
-                yanchor="bottom",
-                showactive=True,
-                active=0,  # "Full" is first button, default view
-                bgcolor="rgba(26,26,26,0.95)",
-                bordercolor="rgba(255,255,255,0.1)",
-                borderwidth=1,
-                pad=dict(r=4, l=4, t=4, b=4),
-                font=dict(size=11, color="white"),
-            ),
-            zone_badges_toggle_button,
             corner_toggle_button,
             axes_toggle_button,
         ],
@@ -405,7 +366,8 @@ def create_zone_focused_dashboard(
             itemdoubleclick="toggleothers",
         ),
         dragmode="pan",
-        hovermode=False,
+        hovermode="closest",
+        uirevision="zone-dashboard-v1",
         autosize=True,
         margin=dict(l=0, r=0, t=60, b=0),
     )
@@ -423,82 +385,131 @@ def create_zone_focused_dashboard(
         default_height="100%",
     )
 
-    # 11) Inject fullscreen CSS and keyboard navigation JavaScript
+    # 11) Generate external toolbar HTML with zone pill buttons
+    print("Generating external zone pill toolbar...")
+
+    # Build toolbar HTML
+    toolbar_buttons_html = []
+    for i, btn in enumerate(zone_buttons):
+        active_class = "active" if i == 0 else ""  # "Full" is active by default
+        toolbar_buttons_html.append(
+            f'<button class="zone-pill {active_class}" data-zone-index="{i}">{btn["label"]}</button>'
+        )
+
+    toolbar_html = f"""
+    <div id="dashboard-toolbar">
+        <div class="zone-pills-container">
+            {"".join(toolbar_buttons_html)}
+        </div>
+    </div>
+    """
+
+    # Convert zone_buttons to JavaScript data
+    zone_data_js = (
+        "const ZONE_DATA = "
+        + json.dumps(
+            [
+                {
+                    "label": btn["label"],
+                    "xRange": btn["args"][0]["xaxis.range"],
+                    "yRange": btn["args"][0]["yaxis.range"],
+                }
+                for btn in zone_buttons
+            ]
+        )
+        + ";\n"
+    )
+    print(f"✓ Generated toolbar with {len(zone_buttons)} zone pill buttons")
+    print()
+
+    # 12) Inject wrapper structure, fullscreen CSS, and keyboard navigation JavaScript
     print("Adding keyboard navigation...")
     html_content = output_path.read_text()
 
     fullscreen_css = """
     <style>
-    html {
+    html, body {
         margin: 0;
         padding: 0;
         overflow: hidden;
         width: 100%;
         height: 100%;
     }
-    body {
-        margin: 0;
-        padding: 0;
+    #plot-wrapper {
+        display: flex;
+        flex-direction: column;
+        width: 100vw;
+        height: 100vh;
         overflow: hidden;
-        width: 100%;
-        height: 100%;
     }
-    body > div {
-        width: 100%;
-        height: 100%;
+    #dashboard-toolbar {
+        flex-shrink: 0;
+        background: rgba(20, 20, 20, 0.95);
+        padding: 10px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .zone-pills-container {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .zone-pill {
+        background: rgba(26, 26, 26, 0.95);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-family: Arial, sans-serif;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .zone-pill:hover {
+        background: rgba(40, 40, 40, 0.95);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+    .zone-pill.active {
+        background: rgba(255, 255, 255, 0.95);
+        color: black;
+        border-color: rgba(255, 255, 255, 0.5);
     }
     .plotly-graph-div {
-        width: 100vw !important;
-        height: 100vh !important;
-    }
-    .js-plotly-plot .draglayer,
-    .js-plotly-plot .hoverlayer {
-        pointer-events: none;
-    }
-    .js-plotly-plot .legend,
-    .js-plotly-plot .updatemenu {
-        pointer-events: auto;
+        flex: 1;
+        min-height: 0;
     }
     </style>
     """
 
-    keyboard_script = """
+    keyboard_script = f"""
     <script>
-    // Fix active zone button text color (black on white background)
-    function updateZoneButtonStyles() {
-        const updateMenus = document.querySelectorAll('.updatemenu-button');
-        if (updateMenus.length === 0) return;
+    // Zone data for external toolbar buttons
+    {zone_data_js}
 
-        const zonePills = Array.from(updateMenus).slice(0, 9);  // Full + Z1-Z8
-
-        zonePills.forEach((btn) => {
-            if (btn.classList.contains('active')) {
-                // Active button: black text on white background
-                btn.style.setProperty('color', 'black', 'important');
-                btn.style.setProperty('background-color', 'rgba(255,255,255,0.95)', 'important');
-            } else {
-                // Inactive button: white text on dark background
-                btn.style.setProperty('color', 'white', 'important');
-                btn.style.setProperty('background-color', 'rgba(26,26,26,0.95)', 'important');
-            }
-        });
-    }
-
-    // Update styles on page load
-    setTimeout(updateZoneButtonStyles, 100);
-
-    // Update styles when buttons are clicked
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('updatemenu-button')) {
-            setTimeout(updateZoneButtonStyles, 50);
-        }
-    });
+    // Current active zone index
+    let activeZoneIndex = 0;
 
     // Animation state tracking to prevent queueing
     let isAnimating = false;
 
+    // Update active button styling
+    function updateActiveZoneButton(newIndex) {{
+        const buttons = document.querySelectorAll('.zone-pill');
+        buttons.forEach((btn, idx) => {{
+            if (idx === newIndex) {{
+                btn.classList.add('active');
+            }} else {{
+                btn.classList.remove('active');
+            }}
+        }});
+        activeZoneIndex = newIndex;
+    }}
+
     // Smooth zoom animation using requestAnimationFrame
-    function smoothZoom(plotDiv, targetRanges, duration, callback) {
+    function smoothZoom(plotDiv, targetRanges, duration, callback) {{
         // Get current ranges
         const layout = plotDiv._fullLayout;
         const fromX = [layout.xaxis.range[0], layout.xaxis.range[1]];
@@ -508,7 +519,7 @@ def create_zone_focused_dashboard(
 
         const startTime = performance.now();
 
-        function step(currentTime) {
+        function step(currentTime) {{
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1.0);
 
@@ -518,7 +529,7 @@ def create_zone_focused_dashboard(
                 : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
             // Interpolate axis ranges
-            const currentRanges = {
+            const currentRanges = {{
                 'xaxis.range': [
                     fromX[0] + (toX[0] - fromX[0]) * eased,
                     fromX[1] + (toX[1] - fromX[1]) * eased
@@ -527,85 +538,94 @@ def create_zone_focused_dashboard(
                     fromY[0] + (toY[0] - fromY[0]) * eased,
                     fromY[1] + (toY[1] - fromY[1]) * eased
                 ]
-            };
+            }};
 
             Plotly.relayout(plotDiv, currentRanges);
 
-            if (progress < 1.0) {
+            if (progress < 1.0) {{
                 requestAnimationFrame(step);
-            } else {
+            }} else {{
                 if (callback) callback();
-            }
-        }
+            }}
+        }}
 
         requestAnimationFrame(step);
-    }
+    }}
+
+    // Navigate to zone by index
+    function navigateToZone(zoneIndex) {{
+        if (isAnimating || zoneIndex === activeZoneIndex) return;
+
+        const plotDiv = document.querySelector('.plotly-graph-div');
+        if (!plotDiv || !plotDiv._fullLayout) return;
+
+        const zoneData = ZONE_DATA[zoneIndex];
+        const targetRanges = {{
+            'xaxis.range': zoneData.xRange,
+            'yaxis.range': zoneData.yRange
+        }};
+
+        isAnimating = true;
+        smoothZoom(plotDiv, targetRanges, 500, function() {{
+            updateActiveZoneButton(zoneIndex);
+            isAnimating = false;
+        }});
+    }}
+
+    // Wire up zone pill button clicks
+    document.addEventListener('DOMContentLoaded', function() {{
+        const zonePills = document.querySelectorAll('.zone-pill');
+        zonePills.forEach((btn, idx) => {{
+            btn.addEventListener('click', function() {{
+                navigateToZone(idx);
+            }});
+        }});
+    }});
 
     // Keyboard navigation with smooth zoom transitions
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function(e) {{
         // Don't interfere with input fields
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {{
             return;
-        }
+        }}
 
         // Prevent animation queueing when users spam keys
-        if (isAnimating) {
+        if (isAnimating) {{
             return;
-        }
+        }}
 
-        // Get the Plotly plot div
-        const plotDiv = document.querySelector('.plotly-graph-div');
-        if (!plotDiv || !plotDiv._fullLayout || !plotDiv._fullLayout.updatemenus) {
-            return;
-        }
-
-        // Get current active button index from Plotly's layout
-        const currentActive = plotDiv._fullLayout.updatemenus[0].active;
-        const maxIndex = plotDiv._fullLayout.updatemenus[0].buttons.length - 1;
-        let newIndex = currentActive;
+        const maxIndex = ZONE_DATA.length - 1;
+        let newIndex = activeZoneIndex;
 
         // Arrow key navigation
-        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-            newIndex = (currentActive + 1) % (maxIndex + 1);  // Wrap around
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {{
+            newIndex = (activeZoneIndex + 1) % (maxIndex + 1);  // Wrap around
             e.preventDefault();
-        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-            newIndex = (currentActive - 1 + maxIndex + 1) % (maxIndex + 1);  // Wrap around
+        }} else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {{
+            newIndex = (activeZoneIndex - 1 + maxIndex + 1) % (maxIndex + 1);  // Wrap around
             e.preventDefault();
-        } else {
+        }} else {{
             return;  // Not an arrow key
-        }
+        }}
 
-        // Execute the button's action with smooth animation
-        if (newIndex !== currentActive) {
-            const menu = plotDiv._fullLayout.updatemenus[0];
-            const button = menu.buttons[newIndex];
-
-            // Execute the button's relayout action with smooth transition
-            if (button.method === 'relayout' && button.args && button.args[0]) {
-                isAnimating = true;
-
-                // Smooth zoom animation over 500ms
-                smoothZoom(plotDiv, button.args[0], 500, function() {
-                    // Update active button state after animation completes
-                    Plotly.relayout(plotDiv, {'updatemenus[0].active': newIndex});
-                    setTimeout(updateZoneButtonStyles, 50);
-                    isAnimating = false;
-                });
-            } else {
-                // Fallback: just update active state
-                Plotly.relayout(plotDiv, {'updatemenus[0].active': newIndex});
-                setTimeout(updateZoneButtonStyles, 50);
-            }
-        }
-    });
+        if (newIndex !== activeZoneIndex) {{
+            navigateToZone(newIndex);
+        }}
+    }});
     </script>
     """
 
-    # Remove fixed width/height inline styles from plotly div
+    # Inject wrapper structure around Plotly div
     import re
 
+    # Find the plotly-graph-div and wrap it with toolbar + wrapper
+    plotly_div_pattern = r'(<div[^>]*class="plotly-graph-div"[^>]*>.*?</script>)'
+
+    def wrap_with_toolbar(match):
+        return f'<div id="plot-wrapper">\n{toolbar_html}\n{match.group(1)}\n</div>'
+
     html_content = re.sub(
-        r'(<div[^>]*class="plotly-graph-div"[^>]*)\s*style="[^"]*"', r"\1", html_content
+        plotly_div_pattern, wrap_with_toolbar, html_content, flags=re.DOTALL
     )
 
     # Insert CSS into head and script before closing </body>
@@ -614,9 +634,11 @@ def create_zone_focused_dashboard(
     output_path.write_text(html_content)
 
     print(f"✓ Saved zone-focused dashboard to: {output_path}")
+    print("✓ Added external zone pill toolbar (prevents click-blocking)")
     print("✓ Added keyboard navigation (arrow keys to cycle zones)")
-    print("✓ Added active button styling (black text on white background)")
-    print("✓ Added fullscreen CSS (no margins, fills viewport)")
+    print("✓ Added smooth zoom animations (500ms cubic-easing)")
+    print("✓ Added hover tooltips (shows coordinates on brake points)")
+    print("✓ Added UI state persistence (zoom/pan preserved across legend toggles)")
     print()
 
     return fig
