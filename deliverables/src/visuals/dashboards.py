@@ -404,6 +404,7 @@ def create_zone_focused_dashboard(
             itemclick="toggle",
             itemdoubleclick="toggleothers",
         ),
+        dragmode="pan",
         hovermode=False,
         autosize=True,
         margin=dict(l=0, r=0, t=60, b=0),
@@ -417,7 +418,7 @@ def create_zone_focused_dashboard(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.write_html(
         output_path,
-        config={"responsive": True},
+        config={"responsive": True, "displayModeBar": False},
         default_width="100%",
         default_height="100%",
     )
