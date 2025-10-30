@@ -7,7 +7,6 @@ import plotly.graph_objects as go
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
 from pathlib import Path
-from shapely.geometry import LineString, Polygon
 
 
 def resample_by_distance(x, y, step_m=2.0, spike_threshold_m=10.0):
@@ -295,14 +294,11 @@ def generate_track_outline(
             gridcolor="#333333",
             showgrid=True,
             zeroline=False,
-            scaleanchor="y",
-            scaleratio=1,
+            visible=False,
         ),
-        yaxis=dict(gridcolor="#333333", showgrid=True, zeroline=False),
+        yaxis=dict(gridcolor="#333333", showgrid=True, zeroline=False, visible=False),
         hovermode="closest",
         showlegend=True,
-        width=1200,
-        height=800,
     )
 
     return x_smooth, y_smooth, fig
@@ -324,6 +320,5 @@ def save_track_data(x_smooth, y_smooth, output_path):
     df_track.to_csv(output_path, index=False)
 
     print(f"✓ Saved track centerline to: {output_path}")
-
 
     # Note: band save/load utilities removed in rollback for simplicity

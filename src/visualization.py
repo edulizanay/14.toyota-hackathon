@@ -824,7 +824,7 @@ def create_zone_focused_dashboard(
             args=[{"visible": True}, zone_badges_indices],
             args2=[{"visible": False}, zone_badges_indices],
         )],
-        x=1.02, xanchor="left", y=0.02, yanchor="bottom",  # Bottom right, below legend
+        x=0.98, xanchor="right", y=0.02, yanchor="bottom",  # Bottom right, below legend
         showactive=False,
         bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(100,200,255,0.4)", borderwidth=1,
         pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="rgba(100,200,255,0.9)"),
@@ -839,7 +839,7 @@ def create_zone_focused_dashboard(
             args=[{"visible": True}, [corner_labels_idx]],
             args2=[{"visible": False}, [corner_labels_idx]],
         )],
-        x=1.02, xanchor="left", y=0.08, yanchor="bottom",  # Bottom right, above zone badges
+        x=0.98, xanchor="right", y=0.08, yanchor="bottom",  # Bottom right, above zone badges
         showactive=False,
         bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(255,165,0,0.4)", borderwidth=1,
         pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="orange"),
@@ -854,7 +854,7 @@ def create_zone_focused_dashboard(
             args=[{"xaxis.visible": True, "yaxis.visible": True}],
             args2=[{"xaxis.visible": False, "yaxis.visible": False}],
         )],
-        x=1.02, xanchor="left", y=0.14, yanchor="bottom",  # Bottom right, above corner labels
+        x=0.98, xanchor="right", y=0.14, yanchor="bottom",  # Bottom right, above corner labels
         showactive=False,
         bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(150,150,150,0.4)", borderwidth=1,
         pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="rgba(150,150,150,0.9)"),
@@ -871,7 +871,7 @@ def create_zone_focused_dashboard(
         updatemenus=[
             dict(  # Zone pills
                 type="buttons", direction="right", buttons=zone_buttons,
-                x=0.5, xanchor="center", y=1.02, yanchor="top",
+                x=0.5, xanchor="center", y=0.98, yanchor="bottom",
                 showactive=True, active=0,  # "Full" is first button, default view
                 bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(255,255,255,0.1)", borderwidth=1,
                 pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="white"),
@@ -881,23 +881,57 @@ def create_zone_focused_dashboard(
             axes_toggle_button,  # Axes toggle
         ],
         legend=dict(
-            x=1.02, xanchor="left", y=1.0, yanchor="top",
+            x=0.98, xanchor="right", y=1.0, yanchor="top",
             bgcolor="rgba(20,20,20,0.9)", bordercolor="rgba(255,255,255,0.3)", borderwidth=1,
             font=dict(size=10, color="white"),
             itemclick="toggle", itemdoubleclick="toggleothers",
         ),
+        autosize=True,
+        margin=dict(l=0, r=0, t=10, b=0),
     )
 
     # 11) Initial camera to Full view
-    fig.update_xaxes(range=[full_x_min, full_x_max])
-    fig.update_yaxes(range=[full_y_min, full_y_max])
+    fig.update_xaxes(range=[full_x_min, full_x_max], visible=False)
+    fig.update_yaxes(range=[full_y_min, full_y_max], visible=False)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.write_html(output_path)
+    fig.write_html(
+        output_path,
+        config={"responsive": True},
+        default_width='100%',
+        default_height='100%'
+    )
 
-    # 12) Inject keyboard navigation JavaScript
+    # 12) Inject fullscreen CSS and keyboard navigation JavaScript
     print("Adding keyboard navigation...")
     html_content = output_path.read_text()
+
+    fullscreen_css = """
+    <style>
+    html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+    }
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+    }
+    body > div {
+        width: 100%;
+        height: 100%;
+    }
+    .plotly-graph-div {
+        width: 100vw !important;
+        height: 100vh !important;
+    }
+    </style>
+    """
 
     keyboard_script = """
     <script>
@@ -1038,13 +1072,23 @@ def create_zone_focused_dashboard(
     </script>
     """
 
-    # Insert script before closing </body>
+    # Remove fixed width/height inline styles from plotly div
+    import re
+    html_content = re.sub(
+        r'(<div[^>]*class="plotly-graph-div"[^>]*)\s*style="[^"]*"',
+        r'\1',
+        html_content
+    )
+
+    # Insert CSS into head and script before closing </body>
+    html_content = html_content.replace('</head>', fullscreen_css + '\n</head>')
     html_content = html_content.replace('</body>', keyboard_script + '\n</body>')
     output_path.write_text(html_content)
 
     print(f"✓ Saved zone-focused dashboard to: {output_path}")
     print("✓ Added keyboard navigation (arrow keys to cycle zones)")
     print("✓ Added active button styling (black text on white background)")
+    print("✓ Added fullscreen CSS (no margins, fills viewport)")
     print()
 
     return fig
