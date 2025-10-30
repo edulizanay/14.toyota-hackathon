@@ -83,3 +83,44 @@ def assign_to_zones(brake_events_df, centerline_x, centerline_y):
     brake_events_df["zone_id"] = brake_events_df["track_distance"].apply(assign_zone)
 
     return brake_events_df
+
+
+def calculate_zone_boundaries(brake_events_df, padding_m=20.0, save_path=None):
+    """
+    Calculate spatial boundaries (bounding box) for each brake zone.
+
+    Args:
+        brake_events_df: DataFrame with brake events (must have zone_id, x_meters, y_meters)
+        padding_m: Padding in meters to add around each zone (default: 20m)
+        save_path: Optional path to save boundaries as JSON
+
+    Returns:
+        dict: {zone_id: {x_min, x_max, y_min, y_max, center_x, center_y}}
+    """
+    bounds = {}
+    grouped = brake_events_df[brake_events_df["zone_id"].notna()].groupby("zone_id")
+
+    for zid, dfz in grouped:
+        xmin, xmax = dfz["x_meters"].min(), dfz["x_meters"].max()
+        ymin, ymax = dfz["y_meters"].min(), dfz["y_meters"].max()
+
+        # Add padding
+        xmin -= padding_m
+        xmax += padding_m
+        ymin -= padding_m
+        ymax += padding_m
+
+        bounds[int(zid)] = {
+            "x_min": float(xmin),
+            "x_max": float(xmax),
+            "y_min": float(ymin),
+            "y_max": float(ymax),
+            "center_x": float((xmin + xmax) / 2.0),
+            "center_y": float((ymin + ymax) / 2.0),
+        }
+
+    if save_path:
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(save_path).write_text(json.dumps(bounds, indent=2))
+
+    return bounds

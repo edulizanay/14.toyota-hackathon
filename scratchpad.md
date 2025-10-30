@@ -99,3 +99,14 @@
   - Selected drivers shown with zone colors (not dispersion colors)
   - Gray reference always visible underneath for comparison
   - Ready for demo and further enhancements
+- **Step 9b completed**: Zone-focused interactive dashboard
+  - Added calculate_zone_boundaries() to corner_detection.py (20m padding around zone brake points)
+  - Added create_zone_focused_dashboard() to visualization.py (200+ lines)
+  - Horizontal zone pills (Z1-Z8) replace dropdown - uses relayout to crop viewport
+  - Driver chips for selection - uses visibility toggle
+  - Reference driver shown in WHITE (racing standard: white = ideal reference)
+  - Comparison drivers use per-point zone coloring (size=10)
+  - Auto-zoom per zone with dashed white boundary rectangles
+  - Removed pit lane visualization (yellow dashed lines)
+  - Generated final_interactive_v2.html: 8 zones, 431 white reference points, 15 comparison drivers
+  - UX improvement: Focused single-zone view vs overwhelming full-track block
