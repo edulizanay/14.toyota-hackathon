@@ -773,9 +773,11 @@ def create_zone_focused_dashboard(
     full_x_min, full_x_max = all_brake_x.min(), all_brake_x.max()
     full_y_min, full_y_max = all_brake_y.min(), all_brake_y.max()
 
-    # Add 50m padding to full view
-    x_padding = 50.0
-    y_padding = 50.0
+    # Add 15% padding to full view (proportional to track dimensions)
+    track_width = full_x_max - full_x_min
+    track_height = full_y_max - full_y_min
+    x_padding = 0.15 * track_width
+    y_padding = 0.15 * track_height
     full_x_min -= x_padding
     full_x_max += x_padding
     full_y_min -= y_padding
