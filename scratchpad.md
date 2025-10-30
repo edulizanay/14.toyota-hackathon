@@ -85,4 +85,10 @@
   - Correlation: -0.233 (negative = opposite of expected)
   - Result: Faster drivers do NOT have lower dispersion
   - Saved: dispersion_by_corner.csv, driver_summary.csv, step7_correlation.png
-  - 🛑 HALTED: Need to review findings with Edu before proceeding
+  - Decision: Continue regardless, can add more variables later
+- **Step 8 completed**: Reference driver visualization
+  - Created src/visualization.py module
+  - Generated step8_reference_driver.html with fastest driver (#13)
+  - 431 brake points shown as semi-transparent gray with zone-colored outlines
+  - 8 zone badges at centroids with "Z1"-"Z8" labels
+  - Clean reference baseline for driver comparisons
