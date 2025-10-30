@@ -461,6 +461,37 @@ def compute_zone_dispersion(brake_events_df):
     return pd.DataFrame(results)
 
 
+def compute_zone_centroids(brake_events_df):
+    """
+    Calculate centroid (mean brake point position) per driver per zone.
+
+    Args:
+        brake_events_df: DataFrame with brake events (must have zone_id, x_meters, y_meters, vehicle_number)
+
+    Returns:
+        DataFrame with columns: vehicle_number, zone_id, centroid_x, centroid_y, brake_count
+    """
+    # Filter to only brake events within zones
+    in_zone = brake_events_df[brake_events_df["zone_id"].notna()].copy()
+
+    results = []
+
+    for (vehicle, zone), group in in_zone.groupby(["vehicle_number", "zone_id"]):
+        # Calculate mean position (centroid)
+        centroid_x = group["x_meters"].mean()
+        centroid_y = group["y_meters"].mean()
+
+        results.append({
+            "vehicle_number": vehicle,
+            "zone_id": zone,
+            "centroid_x": centroid_x,
+            "centroid_y": centroid_y,
+            "brake_count": len(group),
+        })
+
+    return pd.DataFrame(results)
+
+
 def summarize_driver_consistency(dispersion_by_zone_df):
     """
     Calculate average dispersion across all zones per driver.

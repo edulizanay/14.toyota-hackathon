@@ -59,6 +59,7 @@ def create_zone_focused_dashboard(
     telemetry_df,
     brake_events_df,
     driver_summary_df,
+    centroids_df,
     reference_vehicle_number,
     output_path,
     centerline_path=None,
@@ -75,6 +76,7 @@ def create_zone_focused_dashboard(
         telemetry_df: Full telemetry DataFrame for track rendering
         brake_events_df: Brake events DataFrame
         driver_summary_df: Driver summary with lap times
+        centroids_df: Zone centroids DataFrame (average brake points per driver per zone)
         reference_vehicle_number: Vehicle number of reference driver
         output_path: Path to save HTML file
         centerline_path: Optional path to centerline CSV (loads if exists)
@@ -123,6 +125,17 @@ def create_zone_focused_dashboard(
     brake_events_df["x_meters"] = x_rot
     brake_events_df["y_meters"] = y_rot
     print("✓ Rotated brake event coordinates")
+
+    # Rotate centroid coordinates
+    centroids_df = centroids_df.copy()
+    x_rot_cent, y_rot_cent = rotate_coordinates(
+        centroids_df["centroid_x"].values,
+        centroids_df["centroid_y"].values,
+        rotation_angle,
+    )
+    centroids_df["centroid_x"] = x_rot_cent
+    centroids_df["centroid_y"] = y_rot_cent
+    print("✓ Rotated centroid coordinates")
     print()
 
     # 2) Compute zone bboxes
@@ -189,6 +202,26 @@ def create_zone_focused_dashboard(
         )
     )
     print(f"✓ Added {len(ref_brakes)} reference brake points (white)")
+
+    # 5b) Reference centroid trace (white, larger, all zones)
+    ref_centroids = centroids_df[centroids_df["vehicle_number"] == reference_vehicle_number].copy()
+    fig.add_trace(
+        go.Scatter(
+            x=ref_centroids["centroid_x"],
+            y=ref_centroids["centroid_y"],
+            mode="markers",
+            marker=dict(
+                size=16,  # 2x reference brake point size
+                color="rgba(255,255,255,0.6)",
+                line=dict(color="rgba(255,255,255,0.7)", width=2),
+            ),
+            name=f"Winner (#{reference_vehicle_number}) avg",
+            hovertemplate="Ref avg x: %{x:.1f}m<br>y: %{y:.1f}m<extra></extra>",
+            visible=False,  # Initially hidden
+            showlegend=False,  # Don't show in legend
+        )
+    )
+    print(f"✓ Added reference centroid trace ({len(ref_centroids)} centroids)")
     print()
 
     # 6) One comparison trace per driver (all zones), colored by driver
@@ -225,6 +258,30 @@ def create_zone_focused_dashboard(
             )
         )
     print(f"✓ Added traces for {len(driver_list)} drivers")
+    print()
+
+    # 6b) Add centroid traces (average brake points per driver per zone)
+    print("Preparing centroid traces (average brake points)...")
+    for drv in driver_list:
+        df_cent = centroids_df[centroids_df["vehicle_number"] == drv].copy()
+        driver_color = DRIVER_COLORS.get(drv, "#999")
+        fig.add_trace(
+            go.Scatter(
+                x=df_cent["centroid_x"],
+                y=df_cent["centroid_y"],
+                mode="markers",
+                marker=dict(
+                    size=20,  # 2x comparison driver size
+                    color=driver_color,
+                    line=dict(color="rgba(255,255,255,0.7)", width=2),
+                ),
+                name=f"#{drv} (avg)",  # Not shown in legend
+                hovertemplate=f"#{drv} avg x: %{{x:.1f}}m<br>y: %{{y:.1f}}m<extra></extra>",
+                visible=False,  # Initially hidden
+                showlegend=False,  # Don't show in legend
+            )
+        )
+    print(f"✓ Added centroid traces for {len(driver_list)} drivers")
     print()
 
     # 7) Zone pills (relayout only)
@@ -282,13 +339,23 @@ def create_zone_focused_dashboard(
     )
     print()
 
-    # 8) Corner labels and axes toggle buttons
+    # 8) Corner labels, centroids, and axes toggle buttons
     print("Creating toggle buttons for labels...")
     # Find trace indices
-    base_trace_count = len(fig.data) - len(driver_list)
+    base_trace_count = (
+        len(fig.data) - len(driver_list) - len(driver_list)
+    )  # Subtract both driver traces and centroid traces
     corner_labels_idx = (
-        base_trace_count - 2
-    )  # Corner labels is 2 traces before drivers (ref is -1)
+        base_trace_count - 3
+    )  # Corner labels is 3 traces before drivers (ref is -2, ref_centroid is -1)
+
+    # Trace structure: [track, pit_lane, corner_labels, ref, ref_centroid, drivers..., centroids...]
+    ref_centroid_idx = base_trace_count - 1  # Reference centroid is right before drivers
+    first_driver_idx = base_trace_count  # Drivers start after ref_centroid
+    first_centroid_idx = base_trace_count + len(driver_list)  # Centroids start after drivers
+    centroid_indices = list(
+        range(first_centroid_idx, first_centroid_idx + len(driver_list))
+    )
 
     corner_toggle_button = dict(
         type="buttons",
@@ -304,6 +371,27 @@ def create_zone_focused_dashboard(
         x=0.98,
         xanchor="right",
         y=0.13,
+        yanchor="bottom",
+        showactive=False,
+        bgcolor="rgba(26,26,26,0.95)",
+        bordercolor="rgba(255,165,0,0.4)",
+        borderwidth=1,
+        pad=dict(r=4, l=4, t=4, b=4),
+        font=dict(size=11, color="orange"),
+    )
+
+    centroids_toggle_button = dict(
+        type="buttons",
+        direction="right",
+        buttons=[
+            dict(
+                label="Average Brake Points",
+                method="skip",  # Don't do anything automatically, JavaScript will handle it
+            )
+        ],
+        x=0.98,
+        xanchor="right",
+        y=0.07,
         yanchor="bottom",
         showactive=False,
         bgcolor="rgba(26,26,26,0.95)",
@@ -336,6 +424,7 @@ def create_zone_focused_dashboard(
         font=dict(size=11, color="rgba(150,150,150,0.9)"),
     )
     print("✓ Created corner labels toggle button")
+    print("✓ Created average brake points toggle button")
     print("✓ Created axes toggle button")
     print()
 
@@ -351,6 +440,7 @@ def create_zone_focused_dashboard(
         ),
         updatemenus=[
             corner_toggle_button,
+            centroids_toggle_button,
             axes_toggle_button,
         ],
         legend=dict(
@@ -489,11 +579,21 @@ def create_zone_focused_dashboard(
     // Zone data for external toolbar buttons
     {zone_data_js}
 
+    // Driver and centroid trace mapping
+    const NUM_DRIVERS = {len(driver_list)};
+    const BASE_TRACE_COUNT = {base_trace_count};
+    const REF_CENTROID_IDX = {ref_centroid_idx};
+    const FIRST_DRIVER_IDX = {first_driver_idx};
+    const FIRST_CENTROID_IDX = {first_centroid_idx};
+
     // Current active zone index
     let activeZoneIndex = 0;
 
     // Animation state tracking to prevent queueing
     let isAnimating = false;
+
+    // Track whether centroids are currently visible (toggled via button)
+    let centroidsEnabled = false;
 
     // Update active button styling
     function updateActiveZoneButton(newIndex) {{
@@ -572,6 +672,49 @@ def create_zone_focused_dashboard(
         }});
     }}
 
+    // Toggle centroids for only visible drivers
+    function toggleCentroids() {{
+        const plotDiv = document.querySelector('.plotly-graph-div');
+        if (!plotDiv || !plotDiv._fullLayout) return;
+
+        // Toggle the enabled state
+        centroidsEnabled = !centroidsEnabled;
+
+        // Get current visibility state of all traces
+        const traces = plotDiv.data;
+        const updates = [];
+
+        // Always toggle reference centroid (winner is always visible)
+        updates.push({{
+            index: REF_CENTROID_IDX,
+            visible: centroidsEnabled
+        }});
+
+        // For each driver trace, check if it's visible
+        for (let i = 0; i < NUM_DRIVERS; i++) {{
+            const driverIdx = FIRST_DRIVER_IDX + i;
+            const centroidIdx = FIRST_CENTROID_IDX + i;
+            const driverTrace = traces[driverIdx];
+
+            // Check if driver trace is visible
+            // Plotly uses true, false, or 'legendonly'
+            const isDriverVisible = driverTrace.visible === true;
+
+            // Set centroid visibility: only visible if centroids enabled AND driver is visible
+            const centroidVisible = centroidsEnabled && isDriverVisible;
+
+            updates.push({{
+                index: centroidIdx,
+                visible: centroidVisible
+            }});
+        }}
+
+        // Apply all visibility updates at once
+        const indices = updates.map(u => u.index);
+        const visibilities = updates.map(u => u.visible);
+        Plotly.restyle(plotDiv, {{'visible': visibilities}}, indices);
+    }}
+
     // Wire up zone pill button clicks
     document.addEventListener('DOMContentLoaded', function() {{
         const zonePills = document.querySelectorAll('.zone-pill');
@@ -580,6 +723,21 @@ def create_zone_focused_dashboard(
                 navigateToZone(idx);
             }});
         }});
+
+        // Wire up centroids toggle button
+        // Find the button by its label text
+        setTimeout(function() {{
+            const buttons = document.querySelectorAll('.updatemenu-button');
+            buttons.forEach(btn => {{
+                if (btn.textContent.includes('Average Brake Points')) {{
+                    btn.addEventListener('click', function(e) {{
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleCentroids();
+                    }});
+                }}
+            }});
+        }}, 500);  // Wait for Plotly to render
     }});
 
     // Keyboard navigation with smooth zoom transitions
@@ -611,6 +769,56 @@ def create_zone_focused_dashboard(
         if (newIndex !== activeZoneIndex) {{
             navigateToZone(newIndex);
         }}
+    }});
+
+    // Link centroid visibility to driver legend toggles
+    document.addEventListener('DOMContentLoaded', function() {{
+        const plotDiv = document.querySelector('.plotly-graph-div');
+        if (!plotDiv) return;
+
+        // Listen for restyle events (triggered by legend clicks and toggle buttons)
+        plotDiv.on('plotly_restyle', function(data) {{
+            // Check if this is a visibility change
+            if (!data || !data[0] || !data[0].visible) return;
+
+            const visibilityChanges = data[0].visible;
+            const affectedTraces = data[1];
+
+            // Check if the centroid toggle button was clicked
+            // If all centroids are being toggled at once, don't cascade to driver traces
+            if (Array.isArray(affectedTraces) && affectedTraces.length === NUM_DRIVERS) {{
+                const firstAffected = affectedTraces[0];
+                if (firstAffected >= FIRST_CENTROID_IDX && firstAffected < FIRST_CENTROID_IDX + NUM_DRIVERS) {{
+                    // This is from our toggleCentroids function - don't cascade
+                    return;
+                }}
+            }}
+
+            // Only sync if centroids are enabled
+            if (!centroidsEnabled) return;
+
+            // Check if this is a driver trace visibility change (legend click)
+            if (Array.isArray(affectedTraces)) {{
+                affectedTraces.forEach((traceIdx, i) => {{
+                    // Check if this is a driver trace
+                    if (traceIdx >= FIRST_DRIVER_IDX && traceIdx < FIRST_DRIVER_IDX + NUM_DRIVERS) {{
+                        const driverOffset = traceIdx - FIRST_DRIVER_IDX;
+                        const centroidIdx = FIRST_CENTROID_IDX + driverOffset;
+
+                        // Get the visibility value for this trace
+                        let visibility;
+                        if (Array.isArray(visibilityChanges)) {{
+                            visibility = visibilityChanges[i];
+                        }} else {{
+                            visibility = visibilityChanges;
+                        }}
+
+                        // Sync centroid visibility to match driver visibility
+                        Plotly.restyle(plotDiv, {{'visible': visibility}}, [centroidIdx]);
+                    }}
+                }});
+            }}
+        }});
     }});
     </script>
     """
@@ -648,6 +856,7 @@ def render_zone_focus_dashboard(
     telemetry_df,
     brake_events_df,
     driver_summary_df,
+    centroids_df,
     reference_vehicle_number,
     output_path,
     centerline_csv_path=None,
@@ -665,6 +874,7 @@ def render_zone_focus_dashboard(
         telemetry_df: Full telemetry DataFrame for track rendering
         brake_events_df: Brake events DataFrame
         driver_summary_df: Driver summary with lap times
+        centroids_df: Zone centroids DataFrame (average brake points per driver per zone)
         reference_vehicle_number: Vehicle number of reference driver
         output_path: Path to save HTML file
         centerline_csv_path: Path to centerline CSV (optional, loads if exists)
@@ -679,6 +889,7 @@ def render_zone_focus_dashboard(
         telemetry_df=telemetry_df,
         brake_events_df=brake_events_df,
         driver_summary_df=driver_summary_df,
+        centroids_df=centroids_df,
         reference_vehicle_number=reference_vehicle_number,
         output_path=output_path,
         centerline_path=centerline_csv_path,

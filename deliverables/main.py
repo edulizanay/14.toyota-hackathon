@@ -141,6 +141,13 @@ def main():
     print(f"✓ Computed dispersion for {len(disp)} driver-zone combinations")
     print()
 
+    # 7b) Compute zone centroids
+    print("Step 7b: Computing average brake points (centroids) by zone...")
+    print("-" * 80)
+    centroids = dp.compute_zone_centroids(events_zoned)
+    print(f"✓ Computed centroids for {len(centroids)} driver-zone combinations")
+    print()
+
     # 8) Summarize driver consistency
     print("Step 8: Summarizing driver consistency...")
     print("-" * 80)
@@ -166,6 +173,10 @@ def main():
     # Save brake events
     events_zoned.to_csv(outdir / "brake_events.csv", index=False)
     print(f"✓ Saved brake_events.csv ({len(events_zoned):,} events)")
+
+    # Save centroids
+    centroids.to_csv(outdir / "zone_centroids.csv", index=False)
+    print(f"✓ Saved zone_centroids.csv ({len(centroids)} centroids)")
 
     # Save driver summary
     summary.to_csv(outdir / "driver_summary.csv", index=False)
@@ -195,6 +206,7 @@ def main():
         telemetry_df=df,
         brake_events_df=events_zoned,
         driver_summary_df=summary,
+        centroids_df=centroids,
         reference_vehicle_number=int(reference_vehicle_number),
         output_path=dashboard_path,
         centerline_csv_path=centerline_csv,
@@ -214,6 +226,7 @@ def main():
     print("Output files:")
     print(f"  • {outdir / 'all_drivers.csv'}")
     print(f"  • {outdir / 'brake_events.csv'}")
+    print(f"  • {outdir / 'zone_centroids.csv'}")
     print(f"  • {outdir / 'driver_summary.csv'}")
     print(f"  • {outdir / 'track_centerline.csv'}")
     print(f"  • {dashboard_path} (main dashboard)")
