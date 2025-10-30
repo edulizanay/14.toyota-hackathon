@@ -89,6 +89,13 @@
 - **Step 8 completed**: Reference driver visualization
   - Created src/visualization.py module
   - Generated step8_reference_driver.html with fastest driver (#13)
-  - 431 brake points shown as semi-transparent gray with zone-colored outlines
+  - 431 brake points shown as fully gray (fill and outline)
   - 8 zone badges at centroids with "Z1"-"Z8" labels
   - Clean reference baseline for driver comparisons
+- **Step 9 completed**: Interactive driver comparison dashboard
+  - Extended visualization.py with create_interactive_dashboard function
+  - Generated final_interactive.html with dropdown menu
+  - 17 dropdown options: "None (Reference Only)" + 16 drivers sorted by lap time
+  - Selected drivers shown with zone colors (not dispersion colors)
+  - Gray reference always visible underneath for comparison
+  - Ready for demo and further enhancements
