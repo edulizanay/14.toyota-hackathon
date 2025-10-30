@@ -220,6 +220,7 @@ def create_zone_focused_dashboard(
                 marker=dict(
                     size=10,
                     color=driver_color,
+                    opacity=1.0,
                     line=dict(color=marker_line_color, width=marker_line_width),
                 ),
                 name=f"{driver_label} ({lap_time})",
@@ -257,11 +258,11 @@ def create_zone_focused_dashboard(
                 marker=dict(
                     size=20,  # 2x comparison driver size
                     color=driver_color,
+                    opacity=0,  # Initially hidden (controlled by mode toggle)
                     line=dict(color=marker_line_color, width=marker_line_width),
                 ),
                 name=f"#{drv} (avg)",  # Not shown in legend
                 hovertemplate=f"#{drv} avg x: %{{x:.1f}}m<br>y: %{{y:.1f}}m<extra></extra>",
-                visible=False,  # Initially hidden
                 showlegend=False,  # Don't show in legend
             )
         )
@@ -564,8 +565,8 @@ def create_zone_focused_dashboard(
     // Animation state tracking to prevent queueing
     let isAnimating = false;
 
-    // Track whether centroids are currently visible (toggled via button)
-    let centroidsEnabled = false;
+    // Display mode: 'points' (brake points visible) or 'centroids' (centroids visible)
+    let displayMode = 'points';
 
     // Update active button styling
     function updateActiveZoneButton(newIndex) {{
@@ -644,41 +645,61 @@ def create_zone_focused_dashboard(
         }});
     }}
 
-    // Toggle centroids for only visible drivers
+    // Toggle between brake points and centroids (mutually exclusive)
     function toggleCentroids() {{
         const plotDiv = document.querySelector('.plotly-graph-div');
         if (!plotDiv || !plotDiv._fullLayout) return;
 
-        // Toggle the enabled state
-        centroidsEnabled = !centroidsEnabled;
+        // Toggle display mode
+        displayMode = displayMode === 'points' ? 'centroids' : 'points';
 
-        // Get current visibility state of all traces
         const traces = plotDiv.data;
-        const updates = [];
 
-        // For each driver trace, check if it's visible and toggle its centroid
-        for (let i = 0; i < NUM_DRIVERS; i++) {{
-            const driverIdx = FIRST_DRIVER_IDX + i;
-            const centroidIdx = FIRST_CENTROID_IDX + i;
-            const driverTrace = traces[driverIdx];
+        if (displayMode === 'centroids') {{
+            // Switch to centroid mode: hide brake points, show centroids
+            const brakeOpacities = [];
+            const centroidOpacities = [];
+            const brakeIndices = [];
+            const centroidIndices = [];
 
-            // Check if driver trace is visible
-            // Plotly uses true, false, or 'legendonly'
-            const isDriverVisible = driverTrace.visible === true;
+            for (let i = 0; i < NUM_DRIVERS; i++) {{
+                const driverIdx = FIRST_DRIVER_IDX + i;
+                const centroidIdx = FIRST_CENTROID_IDX + i;
+                const driverTrace = traces[driverIdx];
 
-            // Set centroid visibility: only visible if centroids enabled AND driver is visible
-            const centroidVisible = centroidsEnabled && isDriverVisible;
+                brakeIndices.push(driverIdx);
+                brakeOpacities.push(0);  // Hide all brake points
 
-            updates.push({{
-                index: centroidIdx,
-                visible: centroidVisible
-            }});
+                centroidIndices.push(centroidIdx);
+                // Show centroid only if driver is visible
+                centroidOpacities.push(driverTrace.visible === true ? 1 : 0);
+            }}
+
+            // Batch update opacities
+            Plotly.restyle(plotDiv, {{'marker.opacity': brakeOpacities}}, brakeIndices);
+            Plotly.restyle(plotDiv, {{'marker.opacity': centroidOpacities}}, centroidIndices);
+        }} else {{
+            // Switch to points mode: show brake points, hide centroids
+            const brakeOpacities = [];
+            const centroidOpacities = [];
+            const brakeIndices = [];
+            const centroidIndices = [];
+
+            for (let i = 0; i < NUM_DRIVERS; i++) {{
+                const driverIdx = FIRST_DRIVER_IDX + i;
+                const centroidIdx = FIRST_CENTROID_IDX + i;
+
+                brakeIndices.push(driverIdx);
+                brakeOpacities.push(1);  // Show all brake points
+
+                centroidIndices.push(centroidIdx);
+                centroidOpacities.push(0);  // Hide all centroids
+            }}
+
+            // Batch update opacities
+            Plotly.restyle(plotDiv, {{'marker.opacity': brakeOpacities}}, brakeIndices);
+            Plotly.restyle(plotDiv, {{'marker.opacity': centroidOpacities}}, centroidIndices);
         }}
-
-        // Apply all visibility updates at once
-        const indices = updates.map(u => u.index);
-        const visibilities = updates.map(u => u.visible);
-        Plotly.restyle(plotDiv, {{'visible': visibilities}}, indices);
     }}
 
     // Wire up zone pill button clicks
@@ -742,48 +763,32 @@ def create_zone_focused_dashboard(
         const plotDiv = document.querySelector('.plotly-graph-div');
         if (!plotDiv) return;
 
-        // Listen for restyle events (triggered by legend clicks and toggle buttons)
-        plotDiv.on('plotly_restyle', function(data) {{
-            // Check if this is a visibility change
-            if (!data || !data[0] || !data[0].visible) return;
+        // Intercept legend clicks when in centroid mode
+        plotDiv.on('plotly_legendclick', function(data) {{
+            if (displayMode !== 'centroids') return true; // Allow default in points mode
 
-            const visibilityChanges = data[0].visible;
-            const affectedTraces = data[1];
+            const clickedTraceIndex = data.curveNumber;
 
-            // Check if the centroid toggle button was clicked
-            // If all centroids are being toggled at once, don't cascade to driver traces
-            if (Array.isArray(affectedTraces) && affectedTraces.length === NUM_DRIVERS) {{
-                const firstAffected = affectedTraces[0];
-                if (firstAffected >= FIRST_CENTROID_IDX && firstAffected < FIRST_CENTROID_IDX + NUM_DRIVERS) {{
-                    // This is from our toggleCentroids function - don't cascade
-                    return;
-                }}
+            // Check if this is a driver brake trace
+            if (clickedTraceIndex < FIRST_DRIVER_IDX || clickedTraceIndex >= FIRST_DRIVER_IDX + NUM_DRIVERS) {{
+                return true; // Not a driver trace, allow default
             }}
 
-            // Only sync if centroids are enabled
-            if (!centroidsEnabled) return;
+            const driverOffset = clickedTraceIndex - FIRST_DRIVER_IDX;
+            const centroidIdx = FIRST_CENTROID_IDX + driverOffset;
+            const currentTrace = plotDiv.data[clickedTraceIndex];
 
-            // Check if this is a driver trace visibility change (legend click)
-            if (Array.isArray(affectedTraces)) {{
-                affectedTraces.forEach((traceIdx, i) => {{
-                    // Check if this is a driver trace
-                    if (traceIdx >= FIRST_DRIVER_IDX && traceIdx < FIRST_DRIVER_IDX + NUM_DRIVERS) {{
-                        const driverOffset = traceIdx - FIRST_DRIVER_IDX;
-                        const centroidIdx = FIRST_CENTROID_IDX + driverOffset;
+            // Toggle visible state
+            const newVisible = currentTrace.visible === true ? 'legendonly' : true;
 
-                        // Get the visibility value for this trace
-                        let visibility;
-                        if (Array.isArray(visibilityChanges)) {{
-                            visibility = visibilityChanges[i];
-                        }} else {{
-                            visibility = visibilityChanges;
-                        }}
+            // Update brake trace (for legend state) and centroid trace
+            Plotly.restyle(plotDiv, {{'visible': newVisible}}, [clickedTraceIndex]);
+            Plotly.restyle(plotDiv, {{
+                'visible': newVisible,
+                'marker.opacity': newVisible === true ? 1 : 0
+            }}, [centroidIdx]);
 
-                        // Sync centroid visibility to match driver visibility
-                        Plotly.restyle(plotDiv, {{'visible': visibility}}, [centroidIdx]);
-                    }}
-                }});
-            }}
+            return false; // Prevent default
         }});
     }});
     </script>
