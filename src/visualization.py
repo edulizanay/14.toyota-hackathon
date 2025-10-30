@@ -354,6 +354,7 @@ def create_interactive_dashboard(
             corner_labels = json.load(f)
 
         # Radius for circle badges in meters (approx track-relative size)
+        # Halved from 12.0 → 6.0 to reduce badge size
         RADIUS_M = 6.0
 
         for c in corner_labels:
@@ -389,7 +390,8 @@ def create_interactive_dashboard(
                     text=label_text,
                     showarrow=False,
                     align="center",
-                    font=dict(size=12, color="black", family="Arial Black"),
+                    # Font reduced to half of the previous large setting (48 → 24)
+                    font=dict(size=24, color="black", family="Arial Black"),
                     bgcolor="rgba(0,0,0,0)",
                 )
             )
@@ -504,11 +506,12 @@ def create_interactive_dashboard(
             xanchor="left",
             y=0.92,
             yanchor="top",
-            bgcolor="rgba(20, 20, 20, 0.9)",
-            bordercolor="rgba(255, 255, 255, 0.3)",
+            # Light background + dark text to avoid white-on-white when active
+            bgcolor="rgba(235, 235, 235, 0.95)",
+            bordercolor="rgba(60, 60, 60, 0.8)",
             borderwidth=2,
             pad={"r": 10, "t": 6},
-            font=dict(size=11, color="white"),
+            font=dict(size=12, color="#111111"),
             buttons=[
                 dict(
                     label="Corners",
@@ -624,20 +627,7 @@ def create_zone_focused_dashboard(
     print(f"✓ Calculated boundaries for {len(zone_order)} zones")
     print()
 
-    # 4) Zone boundary rectangles
-    print("Adding zone boundary rectangles...")
-    for zid in zone_order:
-        zb = zone_bounds[zid]
-        fig.add_shape(
-            type="rect",
-            x0=zb["x_min"], y0=zb["y_min"], x1=zb["x_max"], y1=zb["y_max"],
-            line=dict(color="rgba(255,255,255,0.2)", width=2, dash="dash"),
-            layer="below",
-        )
-    print(f"✓ Added {len(zone_order)} zone rectangles")
-    print()
-
-    # 5) Zone badges
+    # 4) Zone badges
     print("Adding zone badges...")
     ref_brakes = brake_events_df[
         (brake_events_df["vehicle_number"] == reference_vehicle_number)
@@ -658,12 +648,36 @@ def create_zone_focused_dashboard(
     print(f"✓ Added {len(ref_brakes['zone_id'].dropna().unique())} zone badges")
     print()
 
+    # 5) Corner labels (1-17)
+    print("Loading corner labels...")
+    if CORNER_LABELS_JSON.exists():
+        corner_labels = json.loads(CORNER_LABELS_JSON.read_text())
+        corner_x = [c["x_meters"] for c in corner_labels]
+        corner_y = [c["y_meters"] for c in corner_labels]
+        corner_text = [c["label"] for c in corner_labels]
+
+        fig.add_trace(go.Scatter(
+            x=corner_x, y=corner_y,
+            mode="markers+text",
+            marker=dict(size=24, color="rgba(255,255,255,0.15)", line=dict(color="rgba(255,165,0,0.8)", width=2)),
+            text=corner_text, textposition="middle center",
+            textfont=dict(size=10, color="orange", family="Arial Black"),
+            name="Track Corners",
+            showlegend=False,
+            hovertemplate="Corner %{text}<extra></extra>",
+            visible=True,
+        ))
+        print(f"✓ Added {len(corner_labels)} corner labels")
+    else:
+        print("⚠ Corner labels file not found, skipping")
+    print()
+
     # 6) Reference trace (white, all zones)
     print("Adding reference driver brake points...")
     fig.add_trace(go.Scatter(
         x=ref_brakes["x_meters"], y=ref_brakes["y_meters"],
         mode="markers",
-        marker=dict(size=8, color="rgba(255,255,255,0.6)", line=dict(color="rgba(255,255,255,0.8)", width=2)),
+        marker=dict(size=8, color="rgba(255,255,255,0.6)"),
         name=f"Reference #{reference_vehicle_number}",
         hovertemplate="Ref x: %{x:.1f}m<br>y: %{y:.1f}m<extra></extra>",
         visible=True,
@@ -688,18 +702,45 @@ def create_zone_focused_dashboard(
             x=df_drv["x_meters"], y=df_drv["y_meters"],
             mode="markers",
             marker=dict(size=10, color=colors, line=dict(color="rgba(255,255,255,0.7)", width=2)),
-            name=f"Driver #{drv}",
+            name=f"#{drv} ({valid[valid['vehicle_number'] == drv].iloc[0]['fastest_lap_time']})",
             hovertemplate=f"#{drv} x: %{{x:.1f}}m<br>y: %{{y:.1f}}m<extra></extra>",
-            visible=False,  # hidden by default
+            visible="legendonly",  # hidden by default, but toggleable via legend
+            showlegend=True,
         ))
     print(f"✓ Added traces for {len(driver_list)} drivers")
     print()
 
     # 8) Zone pills (relayout only)
     print("Creating zone selector pills...")
+
+    # Calculate full track bounds from all brake events
+    all_brake_x = brake_events_df["x_meters"].dropna()
+    all_brake_y = brake_events_df["y_meters"].dropna()
+    full_x_min, full_x_max = all_brake_x.min(), all_brake_x.max()
+    full_y_min, full_y_max = all_brake_y.min(), all_brake_y.max()
+
+    # Add 50m padding to full view
+    x_padding = 50.0
+    y_padding = 50.0
+    full_x_min -= x_padding
+    full_x_max += x_padding
+    full_y_min -= y_padding
+    full_y_max += y_padding
+
     zone_buttons = []
-    first_zone = zone_order[0] if zone_order else 1
-    for zid in zone_order:
+
+    # Add "Full" button first (default view)
+    zone_buttons.append(dict(
+        label="Full",
+        method="relayout",
+        args=[{
+            "xaxis.range": [full_x_min, full_x_max],
+            "yaxis.range": [full_y_min, full_y_max],
+        }],
+    ))
+
+    # Add zone-specific buttons
+    for zid in sorted(zone_bounds.keys()):
         zb = zone_bounds[zid]
         zone_buttons.append(dict(
             label=f"Z{zid}",
@@ -709,81 +750,230 @@ def create_zone_focused_dashboard(
                 "yaxis.range": [zb["y_min"], zb["y_max"]],
             }],
         ))
-    print(f"✓ Created {len(zone_buttons)} zone pill buttons")
+    print(f"✓ Created {len(zone_buttons)} zone pill buttons (Full + {len(zone_bounds)} zones)")
     print()
 
-    # 9) Driver chips (visibility only)
-    print("Creating driver selector chips...")
-    # Find indices of reference trace and first driver trace
-    # Traces: track surface (1) + centerline (1) + zone badges (8) + shapes don't count + ref (1) + drivers (N)
-    # We need to count actual traces in fig.data
+    # 9) Corner labels and zone badges toggle buttons
+    print("Creating toggle buttons for labels...")
+    # Find trace indices
+    # Traces: track surface (0) + centerline (1) + zone badges (2-9) + corner labels (10) + ref (11) + drivers (12+)
     base_trace_count = len(fig.data) - len(driver_list)  # Everything except driver traces
-    ref_trace_idx = base_trace_count - 1  # Reference is last before drivers
-    first_driver_idx = base_trace_count
+    zone_badges_indices = list(range(2, 10))  # Zone badges are traces 2-9 (8 zones)
+    corner_labels_idx = base_trace_count - 2  # Corner labels is 2 traces before drivers (ref is -1)
 
-    def visible_for_ref_only():
-        vis = [True] * len(fig.data)
-        # Hide all driver traces
-        for i in range(first_driver_idx, len(fig.data)):
-            vis[i] = False
-        return vis
+    zone_badges_toggle_button = dict(
+        type="buttons",
+        direction="right",
+        buttons=[dict(
+            label="Zone Badges",
+            method="restyle",
+            args=[{"visible": True}, zone_badges_indices],
+            args2=[{"visible": False}, zone_badges_indices],
+        )],
+        x=1.02, xanchor="left", y=0.02, yanchor="bottom",  # Bottom right, below legend
+        showactive=False,
+        bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(100,200,255,0.4)", borderwidth=1,
+        pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="rgba(100,200,255,0.9)"),
+    )
 
-    def visible_for_driver_index(driver_idx):
-        vis = [True] * len(fig.data)
-        # Hide all drivers except selected
-        for j in range(len(driver_list)):
-            vis[first_driver_idx + j] = (j == driver_idx)
-        return vis
-
-    driver_buttons = [dict(
-        label="Reference Only",
-        method="update",
-        args=[{"visible": visible_for_ref_only()}],
-    )]
-
-    for idx, drv in enumerate(driver_list):
-        drv_info = valid[valid["vehicle_number"] == drv].iloc[0]
-        lap_time = drv_info["fastest_lap_time"]
-        driver_buttons.append(dict(
-            label=f"+ Driver #{drv} ({lap_time})",
-            method="update",
-            args=[{"visible": visible_for_driver_index(idx)}],
-        ))
-    print(f"✓ Created {len(driver_buttons)} driver chip buttons")
+    corner_toggle_button = dict(
+        type="buttons",
+        direction="right",
+        buttons=[dict(
+            label="Corner Labels",
+            method="restyle",
+            args=[{"visible": True}, [corner_labels_idx]],
+            args2=[{"visible": False}, [corner_labels_idx]],
+        )],
+        x=1.02, xanchor="left", y=0.08, yanchor="bottom",  # Bottom right, above zone badges
+        showactive=False,
+        bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(255,165,0,0.4)", borderwidth=1,
+        pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="orange"),
+    )
+    print("✓ Created zone badges toggle button")
+    print("✓ Created corner labels toggle button")
     print()
 
-    # 10) Layout: remove pit lane traces if any; add menus
+    # 10) Layout: add zone pills, zone badges toggle, and corner labels toggle, use legend for drivers
     print("Finalizing layout...")
     fig.update_layout(
-        title=f"Barber — Zone-Focused View<br><sub>Reference #{reference_vehicle_number} (white) + optional driver</sub>",
+        title=f"Barber — Zone-Focused View<br><sub>Reference #{reference_vehicle_number} (white) | Click legend to toggle drivers</sub>",
         updatemenus=[
             dict(  # Zone pills
                 type="buttons", direction="right", buttons=zone_buttons,
                 x=0.5, xanchor="center", y=1.02, yanchor="top",
-                showactive=True, active=zone_order.index(first_zone) if zone_order else 0,
+                showactive=True, active=0,  # "Full" is first button, default view
                 bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(255,255,255,0.1)", borderwidth=1,
-                pad=dict(r=4, l=4, t=4, b=4), font=dict(size=12, color="white"),
+                pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="white"),
             ),
-            dict(  # Driver chips
-                type="buttons", direction="right", buttons=driver_buttons,
-                x=0.5, xanchor="center", y=0.98, yanchor="top",
-                showactive=True, active=0,
-                bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(255,255,255,0.1)", borderwidth=1,
-                pad=dict(r=4, l=4, t=4, b=4), font=dict(size=12, color="white"),
-            ),
+            zone_badges_toggle_button,  # Zone badges toggle
+            corner_toggle_button,  # Corner labels toggle
         ],
-        legend=dict(x=0.02, y=0.88, bgcolor="rgba(20,20,20,0.8)", bordercolor="rgba(255,255,255,0.3)", borderwidth=1),
+        legend=dict(
+            x=1.02, xanchor="left", y=1.0, yanchor="top",
+            bgcolor="rgba(20,20,20,0.9)", bordercolor="rgba(255,255,255,0.3)", borderwidth=1,
+            font=dict(size=10, color="white"),
+            itemclick="toggle", itemdoubleclick="toggleothers",
+        ),
     )
 
-    # 11) Initial camera to Zone 1
-    if zone_order:
-        zb = zone_bounds[first_zone]
-        fig.update_xaxes(range=[zb["x_min"], zb["x_max"]])
-        fig.update_yaxes(range=[zb["y_min"], zb["y_max"]])
+    # 11) Initial camera to Full view
+    fig.update_xaxes(range=[full_x_min, full_x_max])
+    fig.update_yaxes(range=[full_y_min, full_y_max])
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.write_html(output_path)
+
+    # 12) Inject keyboard navigation JavaScript
+    print("Adding keyboard navigation...")
+    html_content = output_path.read_text()
+
+    keyboard_script = """
+    <script>
+    // Fix active zone button text color (black on white background)
+    function updateZoneButtonStyles() {
+        const updateMenus = document.querySelectorAll('.updatemenu-button');
+        if (updateMenus.length === 0) return;
+
+        const zonePills = Array.from(updateMenus).slice(0, 9);  // Full + Z1-Z8
+
+        zonePills.forEach((btn) => {
+            if (btn.classList.contains('active')) {
+                // Active button: black text on white background
+                btn.style.color = 'black';
+                btn.style.backgroundColor = 'rgba(255,255,255,0.95)';
+            } else {
+                // Inactive button: white text on dark background
+                btn.style.color = 'white';
+                btn.style.backgroundColor = 'rgba(26,26,26,0.95)';
+            }
+        });
+    }
+
+    // Update styles on page load
+    setTimeout(updateZoneButtonStyles, 100);
+
+    // Update styles when buttons are clicked
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('updatemenu-button')) {
+            setTimeout(updateZoneButtonStyles, 50);
+        }
+    });
+
+    // Animation state tracking to prevent queueing
+    let isAnimating = false;
+
+    // Smooth zoom animation using requestAnimationFrame
+    function smoothZoom(plotDiv, targetRanges, duration, callback) {
+        // Get current ranges
+        const layout = plotDiv._fullLayout;
+        const fromX = [layout.xaxis.range[0], layout.xaxis.range[1]];
+        const fromY = [layout.yaxis.range[0], layout.yaxis.range[1]];
+        const toX = targetRanges['xaxis.range'];
+        const toY = targetRanges['yaxis.range'];
+
+        const startTime = performance.now();
+
+        function step(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1.0);
+
+            // Cubic-in-out easing function
+            const eased = progress < 0.5
+                ? 4 * progress * progress * progress
+                : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+            // Interpolate axis ranges
+            const currentRanges = {
+                'xaxis.range': [
+                    fromX[0] + (toX[0] - fromX[0]) * eased,
+                    fromX[1] + (toX[1] - fromX[1]) * eased
+                ],
+                'yaxis.range': [
+                    fromY[0] + (toY[0] - fromY[0]) * eased,
+                    fromY[1] + (toY[1] - fromY[1]) * eased
+                ]
+            };
+
+            Plotly.relayout(plotDiv, currentRanges);
+
+            if (progress < 1.0) {
+                requestAnimationFrame(step);
+            } else {
+                if (callback) callback();
+            }
+        }
+
+        requestAnimationFrame(step);
+    }
+
+    // Keyboard navigation with smooth zoom transitions
+    document.addEventListener('keydown', function(e) {
+        // Don't interfere with input fields
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+
+        // Prevent animation queueing when users spam keys
+        if (isAnimating) {
+            return;
+        }
+
+        // Get the Plotly plot div
+        const plotDiv = document.querySelector('.plotly-graph-div');
+        if (!plotDiv || !plotDiv._fullLayout || !plotDiv._fullLayout.updatemenus) {
+            return;
+        }
+
+        // Get current active button index from Plotly's layout
+        const currentActive = plotDiv._fullLayout.updatemenus[0].active;
+        const maxIndex = plotDiv._fullLayout.updatemenus[0].buttons.length - 1;
+        let newIndex = currentActive;
+
+        // Arrow key navigation
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            newIndex = (currentActive + 1) % (maxIndex + 1);  // Wrap around
+            e.preventDefault();
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            newIndex = (currentActive - 1 + maxIndex + 1) % (maxIndex + 1);  // Wrap around
+            e.preventDefault();
+        } else {
+            return;  // Not an arrow key
+        }
+
+        // Execute the button's action with smooth animation
+        if (newIndex !== currentActive) {
+            const menu = plotDiv._fullLayout.updatemenus[0];
+            const button = menu.buttons[newIndex];
+
+            // Execute the button's relayout action with smooth transition
+            if (button.method === 'relayout' && button.args && button.args[0]) {
+                isAnimating = true;
+
+                // Smooth zoom animation over 500ms
+                smoothZoom(plotDiv, button.args[0], 500, function() {
+                    // Update active button state after animation completes
+                    Plotly.relayout(plotDiv, {'updatemenus[0].active': newIndex});
+                    setTimeout(updateZoneButtonStyles, 50);
+                    isAnimating = false;
+                });
+            } else {
+                // Fallback: just update active state
+                Plotly.relayout(plotDiv, {'updatemenus[0].active': newIndex});
+                setTimeout(updateZoneButtonStyles, 50);
+            }
+        }
+    });
+    </script>
+    """
+
+    # Insert script before closing </body>
+    html_content = html_content.replace('</body>', keyboard_script + '\n</body>')
+    output_path.write_text(html_content)
+
     print(f"✓ Saved zone-focused dashboard to: {output_path}")
+    print("✓ Added keyboard navigation (arrow keys to cycle zones)")
+    print("✓ Added active button styling (black text on white background)")
     print()
 
     return fig
