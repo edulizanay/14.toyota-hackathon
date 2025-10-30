@@ -1,0 +1,6 @@
+Instruction: copy the root requirements.txt here for a self‑contained install.
+
+Rationale:
+- Judges can `pip install -r deliverables/requirements.txt` without touching the main repo.
+- Keep versions identical to the root to ensure reproducibility.
+

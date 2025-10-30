@@ -889,13 +889,13 @@ def create_zone_focused_dashboard(
             axes_toggle_button,  # Axes toggle
         ],
         legend=dict(
-            x=0.98, xanchor="right", y=0.95, yanchor="top",
+            x=0.98, xanchor="right", y=0.84, yanchor="top",
             bgcolor="rgba(20,20,20,0.9)", bordercolor="rgba(255,255,255,0.3)", borderwidth=1,
             font=dict(size=10, color="white"),
             itemclick="toggle", itemdoubleclick="toggleothers",
         ),
         autosize=True,
-        margin=dict(l=0, r=0, t=10, b=0),
+        margin=dict(l=0, r=0, t=60, b=0),
     )
 
     # 11) Initial camera to Full view
