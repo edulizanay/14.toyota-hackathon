@@ -404,6 +404,7 @@ def create_zone_focused_dashboard(
             itemclick="toggle",
             itemdoubleclick="toggleothers",
         ),
+        hovermode=False,
         autosize=True,
         margin=dict(l=0, r=0, t=60, b=0),
     )
@@ -448,6 +449,14 @@ def create_zone_focused_dashboard(
     .plotly-graph-div {
         width: 100vw !important;
         height: 100vh !important;
+    }
+    .js-plotly-plot .draglayer,
+    .js-plotly-plot .hoverlayer {
+        pointer-events: none;
+    }
+    .js-plotly-plot .legend,
+    .js-plotly-plot .updatemenu {
+        pointer-events: auto;
     }
     </style>
     """
