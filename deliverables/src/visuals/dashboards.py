@@ -145,13 +145,7 @@ def create_zone_focused_dashboard(
     print(f"✓ Calculated boundaries for {len(zone_order)} zones")
     print()
 
-    # 3) Get reference brake events
-    ref_brakes = brake_events_df[
-        (brake_events_df["vehicle_number"] == reference_vehicle_number)
-        & (brake_events_df["zone_id"].notna())
-    ].copy()
-
-    # 4) Corner labels (1-17)
+    # 3) Corner labels (1-17)
     print("Loading corner labels...")
     if corner_labels_json and Path(corner_labels_json).exists():
         corner_labels = json.loads(Path(corner_labels_json).read_text())
@@ -188,59 +182,36 @@ def create_zone_focused_dashboard(
         print("⚠ Corner labels file not found, skipping")
     print()
 
-    # 5) Reference trace (white, all zones)
-    print("Adding reference driver brake points...")
-    fig.add_trace(
-        go.Scatter(
-            x=ref_brakes["x_meters"],
-            y=ref_brakes["y_meters"],
-            mode="markers",
-            marker=dict(size=8, color="rgba(255,255,255,0.6)"),
-            name=f"Winner (#{reference_vehicle_number})",
-            hovertemplate="Ref x: %{x:.1f}m<br>y: %{y:.1f}m<extra></extra>",
-            visible=True,
-        )
-    )
-    print(f"✓ Added {len(ref_brakes)} reference brake points (white)")
-
-    # 5b) Reference centroid trace (white, larger, all zones)
-    ref_centroids = centroids_df[centroids_df["vehicle_number"] == reference_vehicle_number].copy()
-    fig.add_trace(
-        go.Scatter(
-            x=ref_centroids["centroid_x"],
-            y=ref_centroids["centroid_y"],
-            mode="markers",
-            marker=dict(
-                size=16,  # 2x reference brake point size
-                color="rgba(255,255,255,0.6)",
-                line=dict(color="rgba(255,255,255,0.7)", width=2),
-            ),
-            name=f"Winner (#{reference_vehicle_number}) avg",
-            hovertemplate="Ref avg x: %{x:.1f}m<br>y: %{y:.1f}m<extra></extra>",
-            visible=False,  # Initially hidden
-            showlegend=False,  # Don't show in legend
-        )
-    )
-    print(f"✓ Added reference centroid trace ({len(ref_centroids)} centroids)")
-    print()
-
-    # 6) One comparison trace per driver (all zones), colored by driver
-    print("Preparing comparison driver traces...")
+    # 4) All driver traces (including winner), colored by driver
+    print("Preparing driver brake point traces...")
     valid = driver_summary_df.dropna(subset=["fastest_lap_seconds"]).sort_values(
         "fastest_lap_seconds"
     )
-    driver_list = [
-        int(v)
-        for v in valid["vehicle_number"].tolist()
-        if int(v) != reference_vehicle_number
-    ]
+    driver_list = [int(v) for v in valid["vehicle_number"].tolist()]
 
     for drv in driver_list:
         df_drv = brake_events_df[
             (brake_events_df["vehicle_number"] == drv)
             & (brake_events_df["zone_id"].notna())
         ].copy()
-        driver_color = DRIVER_COLORS.get(drv, "#999")
+
+        # Winner gets white/grey styling and starts visible
+        is_winner = drv == reference_vehicle_number
+        if is_winner:
+            driver_color = "rgba(200,200,200,0.8)"  # Light grey
+            marker_line_color = "rgba(255,255,255,0.9)"
+            marker_line_width = 2.5
+            is_visible = True
+            driver_label = f"Winner #{drv}"
+        else:
+            driver_color = DRIVER_COLORS.get(drv, "#999")
+            marker_line_color = "rgba(255,255,255,0.7)"
+            marker_line_width = 2
+            is_visible = "legendonly"
+            driver_label = f"#{drv}"
+
+        lap_time = valid[valid["vehicle_number"] == drv].iloc[0]["fastest_lap_time"]
+
         fig.add_trace(
             go.Scatter(
                 x=df_drv["x_meters"],
@@ -249,22 +220,35 @@ def create_zone_focused_dashboard(
                 marker=dict(
                     size=10,
                     color=driver_color,
-                    line=dict(color="rgba(255,255,255,0.7)", width=2),
+                    line=dict(color=marker_line_color, width=marker_line_width),
                 ),
-                name=f"#{drv} ({valid[valid['vehicle_number'] == drv].iloc[0]['fastest_lap_time']})",
+                name=f"{driver_label} ({lap_time})",
                 hovertemplate=f"#{drv} x: %{{x:.1f}}m<br>y: %{{y:.1f}}m<extra></extra>",
-                visible="legendonly",  # hidden by default, but toggleable via legend
+                visible=is_visible,
                 showlegend=True,
             )
         )
-    print(f"✓ Added traces for {len(driver_list)} drivers")
+    print(
+        f"✓ Added brake point traces for {len(driver_list)} drivers (winner visible by default)"
+    )
     print()
 
-    # 6b) Add centroid traces (average brake points per driver per zone)
+    # 5) Add centroid traces (average brake points per driver per zone)
     print("Preparing centroid traces (average brake points)...")
     for drv in driver_list:
         df_cent = centroids_df[centroids_df["vehicle_number"] == drv].copy()
-        driver_color = DRIVER_COLORS.get(drv, "#999")
+
+        # Winner gets white/grey styling, same as brake points
+        is_winner = drv == reference_vehicle_number
+        if is_winner:
+            driver_color = "rgba(200,200,200,0.8)"  # Light grey
+            marker_line_color = "rgba(255,255,255,0.9)"
+            marker_line_width = 2.5
+        else:
+            driver_color = DRIVER_COLORS.get(drv, "#999")
+            marker_line_color = "rgba(255,255,255,0.7)"
+            marker_line_width = 2
+
         fig.add_trace(
             go.Scatter(
                 x=df_cent["centroid_x"],
@@ -273,7 +257,7 @@ def create_zone_focused_dashboard(
                 marker=dict(
                     size=20,  # 2x comparison driver size
                     color=driver_color,
-                    line=dict(color="rgba(255,255,255,0.7)", width=2),
+                    line=dict(color=marker_line_color, width=marker_line_width),
                 ),
                 name=f"#{drv} (avg)",  # Not shown in legend
                 hovertemplate=f"#{drv} avg x: %{{x:.1f}}m<br>y: %{{y:.1f}}m<extra></extra>",
@@ -341,21 +325,10 @@ def create_zone_focused_dashboard(
 
     # 8) Corner labels, centroids, and axes toggle buttons
     print("Creating toggle buttons for labels...")
-    # Find trace indices
-    base_trace_count = (
-        len(fig.data) - len(driver_list) - len(driver_list)
-    )  # Subtract both driver traces and centroid traces
-    corner_labels_idx = (
-        base_trace_count - 3
-    )  # Corner labels is 3 traces before drivers (ref is -2, ref_centroid is -1)
-
-    # Trace structure: [track, pit_lane, corner_labels, ref, ref_centroid, drivers..., centroids...]
-    ref_centroid_idx = base_trace_count - 1  # Reference centroid is right before drivers
-    first_driver_idx = base_trace_count  # Drivers start after ref_centroid
-    first_centroid_idx = base_trace_count + len(driver_list)  # Centroids start after drivers
-    centroid_indices = list(
-        range(first_centroid_idx, first_centroid_idx + len(driver_list))
-    )
+    # Trace structure: [track, pit_lane, corner_labels, drivers..., centroids...]
+    corner_labels_idx = 2  # Third trace (after track and pit_lane)
+    first_driver_idx = 3  # Drivers start after corner_labels
+    first_centroid_idx = 3 + len(driver_list)  # Centroids start after all drivers
 
     corner_toggle_button = dict(
         type="buttons",
@@ -580,9 +553,8 @@ def create_zone_focused_dashboard(
     {zone_data_js}
 
     // Driver and centroid trace mapping
+    // Trace structure: [track, pit_lane, corner_labels, drivers..., centroids...]
     const NUM_DRIVERS = {len(driver_list)};
-    const BASE_TRACE_COUNT = {base_trace_count};
-    const REF_CENTROID_IDX = {ref_centroid_idx};
     const FIRST_DRIVER_IDX = {first_driver_idx};
     const FIRST_CENTROID_IDX = {first_centroid_idx};
 
@@ -684,13 +656,7 @@ def create_zone_focused_dashboard(
         const traces = plotDiv.data;
         const updates = [];
 
-        // Always toggle reference centroid (winner is always visible)
-        updates.push({{
-            index: REF_CENTROID_IDX,
-            visible: centroidsEnabled
-        }});
-
-        // For each driver trace, check if it's visible
+        // For each driver trace, check if it's visible and toggle its centroid
         for (let i = 0; i < NUM_DRIVERS; i++) {{
             const driverIdx = FIRST_DRIVER_IDX + i;
             const centroidIdx = FIRST_CENTROID_IDX + i;
