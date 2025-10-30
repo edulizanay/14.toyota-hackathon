@@ -78,3 +78,11 @@
   - Generated data/brake-analysis/brake_events.csv with 4,892 brake events
   - Columns: vehicle_number, lap, timestamp, zone_id, track_distance, x/y meters, lon/lat, brake pressures, brake_type
   - 92% of brake events assigned to zones, 8% outside (straights/other areas)
+- **Step 7 - HYPOTHESIS FAILED**: Dispersion analysis complete but hypothesis invalid
+  - Calculated dispersion: 144 driver-zone combinations, 18 drivers analyzed
+  - Fastest driver (#13, 1:37.428): 25.43m avg dispersion
+  - Slowest driver (#18, 1:41.379): 18.08m avg dispersion (MORE consistent!)
+  - Correlation: -0.233 (negative = opposite of expected)
+  - Result: Faster drivers do NOT have lower dispersion
+  - Saved: dispersion_by_corner.csv, driver_summary.csv, step7_correlation.png
+  - 🛑 HALTED: Need to review findings with Edu before proceeding
