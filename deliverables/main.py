@@ -2,7 +2,6 @@
 # ABOUTME: Runs data processing and visualization to produce zone-focused dashboard HTML
 
 import argparse
-import pandas as pd
 from pathlib import Path
 from src import data_processing as dp
 from src import visuals as viz
@@ -115,20 +114,15 @@ def main():
 
     if centerline_csv.exists() and not args.force:
         print(f"Loading existing centerline from {centerline_csv}")
-        centerline_df = pd.read_csv(centerline_csv)
-        centerline_x = centerline_df["x_meters"].to_numpy()
-        centerline_y = centerline_df["y_meters"].to_numpy()
+        centerline_x, centerline_y = viz.load_centerline(centerline_csv)
     else:
         print("Generating new centerline...")
-        x_smooth, y_smooth, _ = viz.build_track_outline_figure(
+        centerline_x, centerline_y = viz.compute_centerline(
             df,
-            centerline_csv_path=centerline_csv,
             vehicle_number=None,
             lap_number=None,
         )
-        # Remove the closing point (last element is duplicate of first)
-        centerline_x = x_smooth[:-1]
-        centerline_y = y_smooth[:-1]
+        viz.save_centerline(centerline_x, centerline_y, centerline_csv)
     print()
 
     # 6) Assign brake events to zones
