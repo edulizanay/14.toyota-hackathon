@@ -73,3 +73,8 @@
   - 4,501 points in zones (92%), removed 391 points outside zones (8%)
   - 8 zones colored distinctly: Zone 1=569pts, Z2=626, Z3=605, Z4=561, Z5=525, Z6=542, Z7=459, Z8=614
   - Track-distance projection working correctly
+- **Step 6 completed**: Saved brake_events.csv
+  - Created src/corner_detection.py with zone assignment utilities
+  - Generated data/brake-analysis/brake_events.csv with 4,892 brake events
+  - Columns: vehicle_number, lap, timestamp, zone_id, track_distance, x/y meters, lon/lat, brake pressures, brake_type
+  - 92% of brake events assigned to zones, 8% outside (straights/other areas)
