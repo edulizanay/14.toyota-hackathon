@@ -36,3 +36,4 @@ data/telemetry-raw/*.csv
 # Temporary files
 *.tmp
 *.bak
+temp/

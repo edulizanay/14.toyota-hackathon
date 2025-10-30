@@ -12,8 +12,8 @@ from track_rendering import generate_track_outline
 # Paths
 BASE_DIR = Path(__file__).parent.parent
 TELEMETRY_PATH = BASE_DIR / "data" / "telemetry-raw" / "all_drivers.csv"
-CORNER_LABELS_JSON = BASE_DIR / "data" / "track-layout" / "corner_labels.json"
-PIT_LANE_JSON = BASE_DIR / "data" / "track-layout" / "pit_lane.json"
+CORNER_LABELS_JSON = BASE_DIR / "data" / "gps-tracks" / "corner_labels.json"
+PIT_LANE_JSON = BASE_DIR / "data" / "gps-tracks" / "pit_lane.json"
 OUTPUT_HTML = BASE_DIR / "data" / "visualizations" / "step5a_all_brakes.html"
 
 
