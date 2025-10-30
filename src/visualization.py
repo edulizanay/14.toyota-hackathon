@@ -732,7 +732,7 @@ def create_zone_focused_dashboard(
         x=ref_brakes["x_meters"], y=ref_brakes["y_meters"],
         mode="markers",
         marker=dict(size=8, color="rgba(255,255,255,0.6)"),
-        name=f"Reference #{reference_vehicle_number}",
+        name=f"Winner (#{reference_vehicle_number})",
         hovertemplate="Ref x: %{x:.1f}m<br>y: %{y:.1f}m<extra></extra>",
         visible=True,
     ))
@@ -826,7 +826,7 @@ def create_zone_focused_dashboard(
             args=[{"visible": True}, zone_badges_indices],
             args2=[{"visible": False}, zone_badges_indices],
         )],
-        x=0.98, xanchor="right", y=0.02, yanchor="bottom",  # Bottom right, below legend
+        x=0.98, xanchor="right", y=0.07, yanchor="bottom",  # Bottom right, below legend
         showactive=False,
         bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(100,200,255,0.4)", borderwidth=1,
         pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="rgba(100,200,255,0.9)"),
@@ -841,7 +841,7 @@ def create_zone_focused_dashboard(
             args=[{"visible": True}, [corner_labels_idx]],
             args2=[{"visible": False}, [corner_labels_idx]],
         )],
-        x=0.98, xanchor="right", y=0.08, yanchor="bottom",  # Bottom right, above zone badges
+        x=0.98, xanchor="right", y=0.13, yanchor="bottom",  # Bottom right, above zone badges
         showactive=False,
         bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(255,165,0,0.4)", borderwidth=1,
         pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="orange"),
@@ -856,7 +856,7 @@ def create_zone_focused_dashboard(
             args=[{"xaxis.visible": True, "yaxis.visible": True}],
             args2=[{"xaxis.visible": False, "yaxis.visible": False}],
         )],
-        x=0.98, xanchor="right", y=0.14, yanchor="bottom",  # Bottom right, above corner labels
+        x=0.98, xanchor="right", y=0.19, yanchor="bottom",  # Bottom right, above corner labels
         showactive=False,
         bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(150,150,150,0.4)", borderwidth=1,
         pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="rgba(150,150,150,0.9)"),
@@ -869,11 +869,17 @@ def create_zone_focused_dashboard(
     # 10) Layout: add zone pills, zone badges toggle, corner labels toggle, and axes toggle, use legend for drivers
     print("Finalizing layout...")
     fig.update_layout(
-        title=f"Barber — Zone-Focused View<br><sub>Reference #{reference_vehicle_number} (white) | Click legend to toggle drivers</sub>",
+        title=dict(
+            text="Barber Motorsports Park",
+            y=0.95,
+            yanchor="top",
+            x=0.5,
+            xanchor="center",
+        ),
         updatemenus=[
             dict(  # Zone pills
                 type="buttons", direction="right", buttons=zone_buttons,
-                x=0.5, xanchor="center", y=0.98, yanchor="bottom",
+                x=0.5, xanchor="center", y=0.88, yanchor="bottom",
                 showactive=True, active=0,  # "Full" is first button, default view
                 bgcolor="rgba(26,26,26,0.95)", bordercolor="rgba(255,255,255,0.1)", borderwidth=1,
                 pad=dict(r=4, l=4, t=4, b=4), font=dict(size=11, color="white"),
@@ -883,7 +889,7 @@ def create_zone_focused_dashboard(
             axes_toggle_button,  # Axes toggle
         ],
         legend=dict(
-            x=0.98, xanchor="right", y=1.0, yanchor="top",
+            x=0.98, xanchor="right", y=0.95, yanchor="top",
             bgcolor="rgba(20,20,20,0.9)", bordercolor="rgba(255,255,255,0.3)", borderwidth=1,
             font=dict(size=10, color="white"),
             itemclick="toggle", itemdoubleclick="toggleothers",
@@ -947,12 +953,12 @@ def create_zone_focused_dashboard(
         zonePills.forEach((btn) => {
             if (btn.classList.contains('active')) {
                 // Active button: black text on white background
-                btn.style.color = 'black';
-                btn.style.backgroundColor = 'rgba(255,255,255,0.95)';
+                btn.style.setProperty('color', 'black', 'important');
+                btn.style.setProperty('background-color', 'rgba(255,255,255,0.95)', 'important');
             } else {
                 // Inactive button: white text on dark background
-                btn.style.color = 'white';
-                btn.style.backgroundColor = 'rgba(26,26,26,0.95)';
+                btn.style.setProperty('color', 'white', 'important');
+                btn.style.setProperty('background-color', 'rgba(26,26,26,0.95)', 'important');
             }
         });
     }
