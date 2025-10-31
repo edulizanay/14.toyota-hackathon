@@ -6,24 +6,26 @@ Brake Point Drift Detector analyzes GR Cup telemetry to measure driver consisten
 
 > **Consistency separates fast drivers from champions—but how do you measure it?**
 
+
+## Demo
+
 [![Demo Video](./docs/images/dashboard-screenshot.png)](https://youtu.be/-Oz4Zg9sSGc)
 
 *Click above to watch the interactive dashboard demo on YouTube*
-
-
-## Demo
 
 - **[Try the tool here](https://edulizanay.github.io/14.toyota-hackathon/)**
 - **Official Dataset**: `barber-motorsports-park.zip` from [trddev.com/hackathon-2025](https://trddev.com/hackathon-2025)
 
 ## What we learned
 
-- **Winners brake earlier and softer**: Podium finishers initiate braking 26m earlier on average and use 23% less brake pressure (7.1 bar vs. 9.2 bar), allowing more time to settle the car and carry higher corner speeds
+- **Winners brake earlier and softer**: Podium finishers initiate braking 26m earlier on average and use 23% less brake pressure (7.1 bar vs. 9.2 bar), giving more time to settle the car before turn-in.
 
-- **Consistency in zones that matter**: Podium finishers show 7.1m tighter brake point dispersion in Zone 8 (final complex) and 5.3m in Zone 5 (infield entry)—the two highest-priority braking zones where races are won
+- **Smooth beats hard**: Podium drivers build brake pressure gradually (24% smoother) rather than stabbing it hard, keeping the car balanced while slower drivers upset the chassis with jerky inputs. This can be spotted in the brake pressure evolution for said zones:
+
+![Dashboard Screenshot](./docs/images/breaking-patterns.png)
 
 
-> 📊 Detailed analysis can be found in [analytics/README_KEY_FINDINGS.md](analytics/README_KEY_FINDINGS.md).
+> 📊 Detailed analysis can be found in [analytics/](analytics/).
 
 ## Quick Start
 
