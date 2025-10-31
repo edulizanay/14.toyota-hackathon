@@ -204,36 +204,6 @@ def create_zone_focused_dashboard(
         print("⚠ Corner labels file not found, skipping")
     print()
 
-    # 3.5) Add zone label traces (badges)
-    print("Adding zone label badges...")
-    zone_label_count = 0
-    for zid in zone_order:
-        if zid in zone_centers:
-            cx, cy = zone_centers[zid]
-            fig.add_trace(
-                go.Scatter(
-                    x=[cx],
-                    y=[cy],
-                    mode="markers+text",
-                    marker=dict(
-                        size=28,
-                        color="rgba(255,255,255,0.95)",
-                        line=dict(color="rgba(160,160,160,1)", width=3),
-                    ),
-                    text=[f"Z{int(zid)}"],
-                    textposition="middle center",
-                    textfont=dict(size=11, color="black", family="Arial Black"),
-                    name=f"Zone Label Z{int(zid)}",
-                    meta="zone-badge",
-                    showlegend=False,
-                    hoverinfo="skip",
-                    visible=False,  # Initially hidden
-                )
-            )
-            zone_label_count += 1
-    print(f"✓ Added {zone_label_count} zone label badges (initially hidden)")
-    print()
-
     # 4) All driver traces (including winner), colored by driver
     print("Preparing driver brake point traces...")
     valid = driver_summary_df.dropna(subset=["fastest_lap_seconds"]).sort_values(
@@ -321,6 +291,36 @@ def create_zone_focused_dashboard(
     print(f"✓ Added centroid traces for {len(driver_list)} drivers")
     print()
 
+    # 6) Add zone label traces (badges) - rendered on top of all other traces
+    print("Adding zone label badges...")
+    zone_label_count = 0
+    for zid in zone_order:
+        if zid in zone_centers:
+            cx, cy = zone_centers[zid]
+            fig.add_trace(
+                go.Scatter(
+                    x=[cx],
+                    y=[cy],
+                    mode="markers+text",
+                    marker=dict(
+                        size=28,
+                        color="rgba(255,255,255,0.95)",
+                        line=dict(color="rgba(160,160,160,1)", width=3),
+                    ),
+                    text=[f"Z{int(zid)}"],
+                    textposition="middle center",
+                    textfont=dict(size=11, color="black", family="Arial Black"),
+                    name=f"Zone Label Z{int(zid)}",
+                    meta="zone-badge",
+                    showlegend=False,
+                    hoverinfo="skip",
+                    visible=False,  # Initially hidden
+                )
+            )
+            zone_label_count += 1
+    print(f"✓ Added {zone_label_count} zone label badges (initially hidden)")
+    print()
+
     # 7) Zone pills (relayout only)
     print("Creating zone selector pills...")
 
@@ -378,10 +378,11 @@ def create_zone_focused_dashboard(
 
     # 8) Corner labels, centroids, and axes toggle buttons
     print("Creating toggle buttons for labels...")
-    # Trace structure: [track, pit_lane, corner_labels, drivers..., centroids...]
-    corner_labels_idx = 2  # Third trace (after track and pit_lane)
+    # Trace structure: [track, centerline, corner_labels, drivers..., centroids..., zone_labels...]
+    corner_labels_idx = 2  # Third trace (after track and centerline)
     first_driver_idx = 3  # Drivers start after corner_labels
     first_centroid_idx = 3 + len(driver_list)  # Centroids start after all drivers
+    # Zone labels are at the end (found dynamically via meta='zone-badge')
 
     corner_toggle_button = dict(
         type="buttons",
@@ -651,7 +652,7 @@ def create_zone_focused_dashboard(
     {zone_data_js}
 
     // Driver and centroid trace mapping
-    // Trace structure: [track, pit_lane, corner_labels, drivers..., centroids...]
+    // Trace structure: [track, centerline, corner_labels, drivers..., centroids..., zone_labels...]
     const NUM_DRIVERS = {len(driver_list)};
     const FIRST_DRIVER_IDX = {first_driver_idx};
     const FIRST_CENTROID_IDX = {first_centroid_idx};
