@@ -433,7 +433,7 @@ def create_zone_focused_dashboard(
         legend=dict(
             x=0.98,
             xanchor="right",
-            y=0.84,
+            y=0.94,
             yanchor="top",
             bgcolor="rgba(20,20,20,0.9)",
             bordercolor="rgba(255,255,255,0.3)",
@@ -457,7 +457,7 @@ def create_zone_focused_dashboard(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.write_html(
         output_path,
-        config={"responsive": True, "displayModeBar": False},
+        config={"responsive": True, "displayModeBar": False, "showTips": False},
         default_width="100%",
         default_height="100%",
     )
