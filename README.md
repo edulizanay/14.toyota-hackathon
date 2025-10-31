@@ -6,7 +6,7 @@ Brake Point Drift Detector analyzes GR Cup telemetry to measure driver consisten
 
 > **Consistency separates fast drivers from champions—but how do you measure it?**
 
-[![Demo Video](./docs/images/dashboard-screenshot.png)](https://www.youtube.com/watch?v=TODO)
+[![Demo Video](./docs/images/dashboard-screenshot.png)](https://youtu.be/-Oz4Zg9sSGc)
 
 ## Demo
 
