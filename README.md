@@ -2,17 +2,15 @@
 
 **Hack the Track 2025 - Driver Training & Insights Category**
 
-Brake Point Drift Detector analyzes GR Cup telemetry to measure driver consistency and identify where to focus practice time. Using GPS coordinates and brake pressure data, it visualizes brake point scatter across corners, helping drivers distinguish between systematic technique issues and random inconsistency.
+Brake Point Drift Detector analyzes GR Cup telemetry to measure driver consistency and pinpoint where to focus practice time. Using GPS coordinates and brake pressure data, it visualizes brake point scatter across corners, revealing systematic technique problems.
 
 > **Consistency separates fast drivers from champions—but how do you measure it?**
 
-![Dashboard Screenshot](./docs/images/dashboard-screenshot.png)
+[![Demo Video](./docs/images/dashboard-screenshot.png)](https://www.youtube.com/watch?v=TODO)
 
 ## Demo
 
-**[Live Demo here](https://edulizanay.github.io/14.toyota-hackathon/)**
-
-- **Demo Video**: [Watch on YouTube](https://www.youtube.com/watch?v=TODO)
+- **[Try the live demo](https://edulizanay.github.io/14.toyota-hackathon/)**
 - **Official Dataset**: `barber-motorsports-park.zip` from [trddev.com/hackathon-2025](https://trddev.com/hackathon-2025)
 
 ## What we learned
@@ -21,9 +19,8 @@ Brake Point Drift Detector analyzes GR Cup telemetry to measure driver consisten
 
 - **Consistency in zones that matter**: Podium finishers show 7.1m tighter brake point dispersion in Zone 8 (final complex) and 5.3m in Zone 5 (infield entry)—the two highest-priority braking zones where races are won
 
-- **Strategic variation vs. random inconsistency**: Podium finishers brake 29m differently in Zone 1 and 28m differently in Zone 2, suggesting intentional racing line optimization rather than pure repeatability
 
-> 📊 **Detailed analysis**: See [analytics/README_KEY_FINDINGS.md](analytics/README_KEY_FINDINGS.md) for details.
+> 📊 Detailed analysis can be found in [analytics/README_KEY_FINDINGS.md](analytics/README_KEY_FINDINGS.md).
 
 ## Quick Start
 
@@ -71,9 +68,8 @@ The tool uses:
 Data files are located in `deliverables/data/input/`:
 - `telemetry.csv` - Raw GR Cup telemetry
 - `usac.csv` - Race timing data
-- `corner_definitions.json` - Brake zone boundaries
-- `corner_labels.json` - Corner naming (C1-C17)
-- `pit_lane.json` - Pit lane geometry
+- `corner_definitions.json` - Brake zone boundaries defined by clusters of breaks
+- `corner_labels.json` - Corner positioning for enhanced aesthetics
 
 ## How It Works
 
@@ -86,26 +82,25 @@ The track centerline is computed from GPS telemetry using a multi-stage smoothin
 3. **Periodic Smoothing**: Apply Savitzky-Golay filter (31-point window, 3rd-order polynomial) with periodic wrapping to eliminate start/finish kinks
 4. **Caching**: Centerline saved to `data/output/track_centerline.csv` for reuse (use `--force` to regenerate)
 
-**Why this matters**: A stable, smooth centerline ensures brake points are assigned to zones consistently across laps and drivers, enabling apples-to-apples comparison.
+**Outcome**: A stable, smooth centerline.
 
 ### 2. Brake Onset Detection
 
 Brake events are detected using rising-edge logic:
 
-1. **Threshold Calculation**: Compute P5 (5th percentile) of all positive brake pressures to filter noise
+1. **Threshold Calculation**: Remove bottom 5% of all positive brake pressures to filter noise
 2. **Pressure Selection**: Use `max(pbrake_f, pbrake_r)` - whichever brake is pressed harder
 3. **Brake Type Recording**: Tag each event as "front" or "rear" based on which pressure led
 4. **Rising Edge Detection**: Detect transition from `pressure < threshold` → `pressure >= threshold` (brake onset)
 5. **GPS Association**: Record GPS coordinates (x, y meters) at the moment of brake onset
 
-**Output**: Each brake event has a GPS coordinate, timestamp, lap number, vehicle number, and brake type.
+**Outcome**: Each brake event has a GPS coordinate, timestamp, lap number, vehicle number, and brake type.
 
 ### 3. Zone Detection & Dispersion
 
 1. **Zone Discovery**: Identify brake event clusters from the data rather than using predefined corners—zones reflect where drivers actually brake, not where corners are marked
-2. **Noise Filtering**: We removed the bottom 5% of non-zero breaks to eliminate false positives and focus on genuine braking events
-3. **Zone-Focused Analysis**: Calculate dispersion (standard deviation) only within identified zones
-4. **Consistency Ranking**: Lower dispersion = more consistent braking technique
+2. **Zone-Focused Analysis**: Calculate dispersion (standard deviation) only within identified zones
+3. **Consistency Ranking**: Lower dispersion = more consistent braking technique
 
 ### 4. Interactive Dashboard
 

@@ -1,38 +1,83 @@
-# Demo Narration (60 seconds)
+# Demo Narration (2:30)
 
-## Hook (10s)
-- "Consistency separates fast drivers from champions—but how do you measure it? Introducing Brake Point Drift Detector."
+## 1. Hook - The Racing Problem (15s)
+- "What separates podium finishers from the rest of the pack?"
+- "We analyzed 16 drivers and 4,879 brake events from Barber Motorsports Park to find out"
+- **Show**: Title slide or track overview
 
-## Show the viz (20s)
-- "Using GR Cup telemetry from Barber, we visualized every brake point as GPS coordinates on the track"
-- "Gray dots = fastest driver's brake points (notice how tight). Colored dots = mid-pack driver. Green = consistent, red = scattered"
-- "Right panel shows dispersion at each corner in meters"
+## 2. The Discovery - What Winners Do (30s)
+- "Three insights changed everything:"
+- **Winners brake earlier and softer**: 26m earlier, 23% less pressure—more time to settle the car
+- **Consistency where it matters**: 7m tighter in the final complex and infield entry—the zones where races are won
+- **Strategic variation**: Winners vary 29m in some zones—intentional optimization, not random scatter
+- "Consistency isn't everywhere—it's precision where it counts"
+- **Show**: Dashboard preview with Zone 5 & 8 highlighted
 
-## The insight (15s)
-- "Corner 5: this driver's brake points scattered across 8 meters, fastest driver within 2 meters"
-- "This is repeatability—first step to improvement. Tight clusters means you're doing the same thing every lap, scattered means something's changing"
-- "Can't fix what you can't repeat"
+## 3. The Tool - Live Demo (70s)
+- "Here's every brake point at Barber, plotted by GPS"
+- **Click winner**: "Notice the tight clusters in Zones 5 and 8—textbook consistency"
+- **Click mid-pack driver**: "See the scatter? 7+ meters of variation in the same zones"
+- **Toggle centroids**: "Average brake points vs. lap-by-lap detail"
+- **Point to chart**: "Dispersion tells drivers exactly where to focus practice time"
+- "This is what separates champions from fast drivers—measurable, actionable precision"
+- **Show**: Live dashboard interaction, winner vs. field comparison, toggle feature
 
-## Impact & future (15s)
-- "Select any driver, instantly see where to focus practice time"
-- "Future: real-time audio feedback—'braked 3 meters early, Corner 5'—building muscle memory faster"
-- "For GR Cup teams with limited track time, this prioritizes development efforts"
+## 4. How It Works (20s)
+- "Built on official Toyota GR Cup telemetry plus USAC timing data"
+- "GPS brake onset detection, then zone discovery from actual brake clusters—not predefined corners"
+- "We found where drivers actually brake, not where the track map says they should"
+- **Show**: Brief methodology diagram or code snippet
+
+## 5. Impact (20s)
+- "Drivers see exactly which zones need work"
+- "Coaches prioritize limited track time on what matters most"
+- "Teams distinguish technique issues from intentional line variation"
+- "Future: real-time feedback during sessions—building muscle memory faster"
+- **Show**: Use case scenarios
+
+## 6. Close (5s)
+- "Try it live: [GitHub Pages URL]"
+- "Transforming gut feeling into measurable improvement"
+- **Show**: Live demo URL on screen
 
 ---
 
-## Key Messages
+## Visual Checklist
 
-### What the tool shows
-- **Repeatability, not correctness**: Tight clusters mean consistent behavior; scattered means something varies lap-to-lap
-- **First step to improvement**: You can't fix what you can't repeat
-- **Prioritization**: Shows which corners need attention first
+**Must show:**
+- [ ] Track map with all brake points
+- [ ] Winner selection (tight clusters)
+- [ ] Mid-pack selection (scattered points)
+- [ ] Zones 5 & 8 comparison (winner vs. field)
+- [ ] Toggle centroids feature
+- [ ] Dispersion bar chart
+- [ ] Live demo URL (prominently at end)
 
-### What it doesn't claim
-- Not prescriptive about HOW to brake
-- Not claiming "match these coordinates" (racing line context matters)
-- Shows symptom (inconsistency) not necessarily root cause (could be line, braking, or both)
+**Screen time:**
+- Hook: 15s
+- Insights: 30s
+- Dashboard demo: 70s (majority)
+- Technical: 20s
+- Impact: 20s
+- Close: 5s
+- **Total: ~2:30**
 
-### Future vision
-- Real-time audio feedback during laps
-- Building muscle memory faster through immediate feedback
-- Extends from post-session analysis to in-session coaching
+---
+
+## Key Talking Points
+
+**Lead with impact, not features:**
+- ✅ "Winners brake 26m earlier and use 23% less pressure"
+- ❌ "Our tool detects brake onset using GPS coordinates"
+
+**Show, don't tell:**
+- ✅ Click drivers, show the visual difference
+- ❌ Explain how the algorithm works
+
+**Make it actionable:**
+- ✅ "This tells you which zones to practice"
+- ❌ "This is an interesting data visualization"
+
+**Future vision:**
+- ✅ "Real-time feedback during practice sessions"
+- ❌ "We could add more features someday"
