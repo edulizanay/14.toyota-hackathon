@@ -2,6 +2,8 @@
 # ABOUTME: Zone-focused view with pills, toggles, rotation, and keyboard navigation
 
 import json
+
+import numpy as np
 import plotly.graph_objects as go
 from pathlib import Path
 
@@ -53,6 +55,125 @@ def _get_driver_color(vehicle_number):
 
 # Build lookup dict for all reasonable vehicle numbers (1-99)
 DRIVER_COLORS = {i: _get_driver_color(i) for i in range(1, 100)}
+
+
+def _add_centerline_direction_arrows(
+    fig,
+    spacing_m=30.0,
+    arrow_length_m=5.0,
+    arrow_width_m=2.0,
+    color="rgba(92,207,255,0.5)",
+):
+    """
+    Add small triangular direction indicators along the centerline using shapes.
+
+    Shapes render reliably in HTML and survive layout updates (unlike annotations).
+    Uses SVG paths to create filled triangles pointing in the direction of travel.
+
+    Args:
+        fig: Plotly figure object with Centerline trace
+        spacing_m: Target spacing between arrows in meters (default: 30.0)
+        arrow_length_m: Length of arrow from base to tip in meters (default: 5.0)
+        arrow_width_m: Width of arrow base in meters (default: 2.0)
+        color: Fill color for arrows (default: semi-transparent cyan)
+    """
+    # Find the centerline trace
+    centerline_trace = None
+    for trace in fig.data:
+        if (
+            hasattr(trace, "name")
+            and trace.name == "Centerline"
+            and trace.mode == "lines"
+        ):
+            centerline_trace = trace
+            break
+
+    if centerline_trace is None:
+        print("⚠ Centerline trace not found, skipping direction arrows")
+        return
+
+    # Extract coordinates as numpy arrays
+    x = np.array(centerline_trace.x)
+    y = np.array(centerline_trace.y)
+
+    # If closed track (first equals last), remove duplicate last point
+    if len(x) > 1 and x[0] == x[-1] and y[0] == y[-1]:
+        x = x[:-1]
+        y = y[:-1]
+
+    n = len(x)
+    if n < 3:
+        print("⚠ Centerline too short for direction arrows")
+        return
+
+    # Compute segment lengths
+    dx = np.diff(x)
+    dy = np.diff(y)
+    segment_lengths = np.sqrt(dx**2 + dy**2)
+    median_step = np.median(segment_lengths)
+
+    # Calculate stride based on desired spacing
+    stride = max(1, round(spacing_m / median_step))
+
+    # Generate arrows at stride intervals
+    arrow_count = 0
+    shapes = list(fig.layout.shapes) if fig.layout.shapes else []
+
+    for i in range(0, n, stride):
+        # Compute tangent using central difference with wraparound
+        i_prev = (i - 1) % n
+        i_next = (i + 1) % n
+        tx = x[i_next] - x[i_prev]
+        ty = y[i_next] - y[i_prev]
+
+        # Normalize tangent
+        t_mag = np.sqrt(tx**2 + ty**2)
+        if t_mag < 1e-6:
+            continue  # Skip degenerate points
+        tx /= t_mag
+        ty /= t_mag
+
+        # Compute normal (perpendicular to tangent)
+        nx = -ty
+        ny = tx
+
+        # Define triangle vertices
+        # Tip: move forward along tangent
+        tip_x = x[i] + 0.5 * arrow_length_m * tx
+        tip_y = y[i] + 0.5 * arrow_length_m * ty
+
+        # Base center: move backward along tangent
+        base_x = x[i] - 0.5 * arrow_length_m * tx
+        base_y = y[i] - 0.5 * arrow_length_m * ty
+
+        # Left and right base points
+        left_x = base_x + 0.5 * arrow_width_m * nx
+        left_y = base_y + 0.5 * arrow_width_m * ny
+        right_x = base_x - 0.5 * arrow_width_m * nx
+        right_y = base_y - 0.5 * arrow_width_m * ny
+
+        # Build SVG path: M (tip) L (left) L (right) Z (close)
+        path = f"M {tip_x},{tip_y} L {left_x},{left_y} L {right_x},{right_y} Z"
+
+        # Add shape to figure
+        shapes.append(
+            dict(
+                type="path",
+                path=path,
+                xref="x",
+                yref="y",
+                fillcolor=color,
+                line=dict(width=0),
+                layer="above",
+            )
+        )
+        arrow_count += 1
+
+    # Update figure with all shapes
+    fig.update_layout(shapes=shapes)
+    print(
+        f"✓ Added {arrow_count} direction arrows along centerline (spacing ~{spacing_m}m)"
+    )
 
 
 def create_zone_focused_dashboard(
@@ -113,6 +234,12 @@ def create_zone_focused_dashboard(
             trace.x = x_rot
             trace.y = y_rot
     print("✓ Rotated track outline")
+    print()
+
+    # Add direction arrows to centerline
+    _add_centerline_direction_arrows(
+        fig, spacing_m=75.0, arrow_length_m=5.0, arrow_width_m=2.0
+    )
     print()
 
     # Rotate brake event coordinates
