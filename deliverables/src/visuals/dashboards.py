@@ -195,18 +195,20 @@ def create_zone_focused_dashboard(
             & (brake_events_df["zone_id"].notna())
         ].copy()
 
-        # Winner gets white styling and starts visible
+        # Winner gets white fill with gold stroke (championship styling)
         is_winner = drv == reference_vehicle_number
         if is_winner:
-            driver_color = "rgba(255,255,255,0.9)"  # White (matches stroke)
-            marker_line_color = "rgba(255,255,255,0.9)"
-            marker_line_width = 2.5
+            driver_color = "rgba(255, 255, 255, 1.0)"  # Pure white fill
+            marker_line_color = "rgba(255, 215, 0, 1.0)"  # Gold stroke
+            marker_line_width = 4  # Thick gold ring
+            marker_size = 14  # Larger than field
             is_visible = True
             driver_label = f"Winner #{drv}"
         else:
             driver_color = DRIVER_COLORS.get(drv, "#999")
             marker_line_color = "rgba(255,255,255,0.7)"
             marker_line_width = 2
+            marker_size = 10  # Standard size
             is_visible = "legendonly"
             driver_label = f"#{drv}"
 
@@ -218,7 +220,7 @@ def create_zone_focused_dashboard(
                 y=df_drv["y_meters"],
                 mode="markers",
                 marker=dict(
-                    size=10,
+                    size=marker_size,
                     color=driver_color,
                     opacity=1.0,
                     line=dict(color=marker_line_color, width=marker_line_width),
@@ -239,16 +241,18 @@ def create_zone_focused_dashboard(
     for drv in driver_list:
         df_cent = centroids_df[centroids_df["vehicle_number"] == drv].copy()
 
-        # Winner gets white styling, same as brake points
+        # Winner gets white fill with gold stroke, same as brake points
         is_winner = drv == reference_vehicle_number
         if is_winner:
-            driver_color = "rgba(255,255,255,0.9)"  # White (matches stroke)
-            marker_line_color = "rgba(255,255,255,0.9)"
-            marker_line_width = 2.5
+            driver_color = "rgba(255, 255, 255, 1.0)"  # Pure white fill
+            marker_line_color = "rgba(255, 215, 0, 1.0)"  # Gold stroke
+            marker_line_width = 4  # Thick gold ring
+            centroid_size = 24  # Larger for winner
         else:
             driver_color = DRIVER_COLORS.get(drv, "#999")
             marker_line_color = "rgba(255,255,255,0.7)"
             marker_line_width = 2
+            centroid_size = 20  # Standard size
 
         fig.add_trace(
             go.Scatter(
@@ -256,7 +260,7 @@ def create_zone_focused_dashboard(
                 y=df_cent["centroid_y"],
                 mode="markers",
                 marker=dict(
-                    size=20,  # 2x comparison driver size
+                    size=centroid_size,
                     color=driver_color,
                     opacity=0,  # Initially hidden (controlled by mode toggle)
                     line=dict(color=marker_line_color, width=marker_line_width),
@@ -326,10 +330,19 @@ def create_zone_focused_dashboard(
 
     # 8) Corner labels, centroids, and axes toggle buttons
     print("Creating toggle buttons for labels...")
-    # Trace structure: [track, pit_lane, corner_labels, drivers..., centroids...]
-    corner_labels_idx = 2  # Third trace (after track and pit_lane)
-    first_driver_idx = 3  # Drivers start after corner_labels
-    first_centroid_idx = 3 + len(driver_list)  # Centroids start after all drivers
+    # Find trace indices dynamically by name (robust to Plotly export changes)
+    corner_labels_idx = None
+    first_driver_idx = None
+    first_centroid_idx = None
+
+    for idx, trace in enumerate(fig.data):
+        name = trace.name if hasattr(trace, "name") else ""
+        if name == "Track Corners":
+            corner_labels_idx = idx
+        elif first_driver_idx is None and ("Winner" in name or "#" in name):
+            first_driver_idx = idx
+        elif first_centroid_idx is None and "centroid" in name.lower():
+            first_centroid_idx = idx
 
     corner_toggle_button = dict(
         type="buttons",
