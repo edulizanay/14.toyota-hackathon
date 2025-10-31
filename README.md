@@ -9,34 +9,24 @@ Brake Point Drift Detector analyzes GR Cup telemetry to measure driver consisten
 ![Dashboard Screenshot](./docs/images/dashboard-screenshot.png)
 *TODO: Add screenshot of the interactive dashboard showing track map and dispersion analysis*
 
-## Demo & Submission
+## Demo
 
-🎯 **[Try the Live Demo →](https://edulizanay.github.io/14.toyota-hackathon/)**
+**[Live Demo here](https://edulizanay.github.io/14.toyota-hackathon/)**
 
-No installation required - opens directly in your browser with interactive features:
-- Click drivers in the legend to compare brake point consistency
-- Toggle between individual brake points and average centroids
-- Explore zone-by-zone dispersion metrics
-
-- **Demo Video**: [3-minute walkthrough on YouTube](https://www.youtube.com/watch?v=TODO)
+- **Demo Video**: [Watch on YouTube](https://www.youtube.com/watch?v=TODO)
 - **Official Dataset**: `barber-motorsports-park.zip` from [trddev.com/hackathon-2025](https://trddev.com/hackathon-2025)
-- **Supplemental Data**: USAC race timing data for lap time correlation
 
 ## Key Findings
 
 Analysis of 16 drivers and 4,879 brake events from Barber Motorsports Park:
 
-- **Zone-specific consistency wins races**: While overall dispersion is similar across the field, podium finishers show 7.1m consistency advantage in Zone 8 (final complex) and 5.3m advantage in Zone 5 (infield entry)—the two highest-priority braking zones
+- **Winners brake earlier and softer**: Podium finishers initiate braking 26m earlier on average and use 23% less brake pressure (7.1 bar vs. 9.2 bar), allowing more time to settle the car and carry higher corner speeds
 
-- **Strategic brake point placement**: Podium finishers brake 29m differently in Zone 1 and 28m differently in Zone 2, suggesting intentional racing line optimization beyond pure repeatability
+- **Consistency in zones that matter**: Podium finishers show 7.1m tighter brake point dispersion in Zone 8 (final complex) and 5.3m in Zone 5 (infield entry)—the two highest-priority braking zones where races are won
 
-- **Winner brakes 26m earlier on average**: In 7 of 8 zones, the winning driver initiates braking earlier than the field (up to 44m earlier in Zone 1), allowing more time to settle the car and carry higher corner speeds
+- **Strategic variation vs. random inconsistency**: Podium finishers brake 29m differently in Zone 1 and 28m differently in Zone 2, suggesting intentional racing line optimization rather than pure repeatability
 
-- **Smoother braking technique**: Podium finishers average 7.1 bar brake pressure vs. 9.2 bar for the field (2.1 bar less), indicating more efficient threshold braking and better corner entry speed management
-
-- **Winner (Car #13)** posted 1:37.428 fastest lap with 30.7m average dispersion—proving that strategic inconsistency in some zones enables speed in others
-
-> 📊 **Detailed analysis**: See [analytics/README_KEY_FINDINGS.md](analytics/README_KEY_FINDINGS.md) for complete methodology, zone-by-zone breakdown, and coaching implications
+> 📊 **Detailed analysis**: See [analytics/README_KEY_FINDINGS.md](analytics/README_KEY_FINDINGS.md) for details.
 
 ## Quick Start
 
@@ -113,44 +103,24 @@ Brake events are detected using rising-edge logic:
 
 **Output**: Each brake event has a GPS coordinate, timestamp, lap number, vehicle number, and brake type.
 
-### 3. Zone Assignment & Dispersion
+### 3. Zone Detection & Dispersion
 
-1. **Zone Mapping**: Assign each brake event to a predefined corner zone based on GPS distance from centerline
-2. **Dispersion Calculation**: For each driver-zone pair, compute standard deviation of brake point GPS positions (in meters)
-3. **Consistency Ranking**: Lower dispersion = more consistent braking
+1. **Zone Discovery**: Identify brake event clusters from the data rather than using predefined corners—zones reflect where drivers actually brake, not where corners are marked
+2. **Noise Filtering**: We removed the bottom 5% of non-zero breaks to eliminate false positives and focus on genuine braking events
+3. **Zone-Focused Analysis**: Calculate dispersion (standard deviation) only within identified zones
+4. **Consistency Ranking**: Lower dispersion = more consistent braking technique
 
 ### 4. Interactive Dashboard
 
 The dashboard provides:
 - **Track visualization**: Overhead track map with brake points color-coded by driver
-- **Zone analysis**: Bar chart showing dispersion (meters) for each corner
 - **Driver comparison**: Compare any driver against the fastest lap reference
 - **Dual modes**: Toggle between individual brake points (scatter) and average brake points (centroids)
 
-## Technical Considerations
 
-### Brake Detection Methodology
+### Lookng at the Future
 
-- **Brake onset vs. peak pressure**: This tool detects brake **onset** (the moment braking starts), not peak pressure. This measures where drivers initiate braking, which is the primary consistency metric for analyzing brake point placement.
-
-- **Front vs. rear brake**: The tool uses the **maximum** of front or rear brake pressure and records which one led. In racing, drivers typically lead with front brake, but the system tracks both to capture technique variations.
-
-### Known Limitations
-
-- **GPS precision**: Consumer-grade GPS (~2-5m accuracy) limits the resolution of dispersion measurements. Sub-meter differences may not be meaningful.
-
-- **Racing line variation**: Brake point scatter can result from intentional racing line adjustments (overtaking, defending, traffic) or unintentional inconsistency. The tool shows the symptom, not the root cause.
-
-- **Pit lane filtering**: Events near pit entry/exit are currently included in analysis. For production use, these should be filtered to avoid skewing dispersion metrics.
-
-### Training Applications
-
-This methodology enables several coaching workflows:
-
-- **Live session feedback**: "Braked 3 meters early, Corner 5" - real-time audio coaching during practice sessions
-- **Multi-track analysis**: Expand beyond Barber to full GR Cup calendar for season-long consistency tracking
-- **Apex/exit analysis**: Extend methodology to corner apex speed and throttle application points for complete corner profiling
-- **Session-to-session tracking**: Measure improvement across practice/qualifying/race sessions to validate coaching interventions
+By giving drivers precise, data-driven feedback on their brake point consistency, we enable them to refine their training with surgical precision—transforming gut feeling into measurable improvement and turning good drivers into champions.
 
 ## Project Structure
 
@@ -169,13 +139,6 @@ deliverables/
         ├── track_outline.py   # Centerline computation
         └── dashboards.py      # Plotly dashboard generation
 ```
-
-## System Requirements
-
-- **Python**: 3.13+ (may work on 3.10+, not tested)
-- **Memory**: ~2GB RAM (processes large telemetry CSVs in chunks)
-- **Storage**: ~500MB for telemetry data + outputs
-- **Browser**: Modern browser with JavaScript (Chrome, Firefox, Safari, Edge)
 
 ## License
 
