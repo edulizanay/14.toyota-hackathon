@@ -7,7 +7,6 @@ Brake Point Drift Detector analyzes GR Cup telemetry to measure driver consisten
 > **Consistency separates fast drivers from champions—but how do you measure it?**
 
 ![Dashboard Screenshot](./docs/images/dashboard-screenshot.png)
-*TODO: Add screenshot of the interactive dashboard showing track map and dispersion analysis*
 
 ## Demo
 
@@ -16,9 +15,7 @@ Brake Point Drift Detector analyzes GR Cup telemetry to measure driver consisten
 - **Demo Video**: [Watch on YouTube](https://www.youtube.com/watch?v=TODO)
 - **Official Dataset**: `barber-motorsports-park.zip` from [trddev.com/hackathon-2025](https://trddev.com/hackathon-2025)
 
-## Key Findings
-
-Analysis of 16 drivers and 4,879 brake events from Barber Motorsports Park:
+## What we learned
 
 - **Winners brake earlier and softer**: Podium finishers initiate braking 26m earlier on average and use 23% less brake pressure (7.1 bar vs. 9.2 bar), allowing more time to settle the car and carry higher corner speeds
 

@@ -412,6 +412,19 @@ def create_zone_focused_dashboard(
             x=0.5,
             xanchor="center",
         ),
+        annotations=[
+            dict(
+                text="← → Navigate zones with arrow keys",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.985,
+                xanchor="center",
+                yanchor="bottom",
+                showarrow=False,
+                font=dict(size=10, color="rgba(255, 255, 255, 0.5)"),
+            )
+        ],
         updatemenus=[
             corner_toggle_button,
             centroids_toggle_button,
