@@ -145,6 +145,28 @@ def create_zone_focused_dashboard(
     print(f"✓ Calculated boundaries for {len(zone_order)} zones")
     print()
 
+    # 2.5) Compute zone centers for labels
+    print("Computing zone centers for labels...")
+    zone_centers = {}
+    ref_brake_df = brake_events_df[
+        brake_events_df["vehicle_number"] == reference_vehicle_number
+    ]
+    for zid in zone_order:
+        zone_points = ref_brake_df[ref_brake_df["zone_id"] == zid]
+        if len(zone_points) > 0:
+            # Use mean of reference driver's brake points in this zone
+            cx = zone_points["x_meters"].mean()
+            cy = zone_points["y_meters"].mean()
+            zone_centers[zid] = (cx, cy)
+        else:
+            # Fallback to geometric center of zone bounds
+            zb = zone_bounds[zid]
+            cx = (zb["x_min"] + zb["x_max"]) / 2
+            cy = (zb["y_min"] + zb["y_max"]) / 2
+            zone_centers[zid] = (cx, cy)
+    print(f"✓ Calculated centers for {len(zone_centers)} zones")
+    print()
+
     # 3) Corner labels (1-17)
     print("Loading corner labels...")
     if corner_labels_json and Path(corner_labels_json).exists():
@@ -180,6 +202,36 @@ def create_zone_focused_dashboard(
         print(f"✓ Added {len(corner_labels)} corner labels")
     else:
         print("⚠ Corner labels file not found, skipping")
+    print()
+
+    # 3.5) Add zone label traces (badges)
+    print("Adding zone label badges...")
+    zone_label_count = 0
+    for zid in zone_order:
+        if zid in zone_centers:
+            cx, cy = zone_centers[zid]
+            fig.add_trace(
+                go.Scatter(
+                    x=[cx],
+                    y=[cy],
+                    mode="markers+text",
+                    marker=dict(
+                        size=28,
+                        color="rgba(255,255,255,0.95)",
+                        line=dict(color="rgba(160,160,160,1)", width=3),
+                    ),
+                    text=[f"Z{int(zid)}"],
+                    textposition="middle center",
+                    textfont=dict(size=11, color="black", family="Arial Black"),
+                    name=f"Zone Label Z{int(zid)}",
+                    meta="zone-badge",
+                    showlegend=False,
+                    hoverinfo="skip",
+                    visible=False,  # Initially hidden
+                )
+            )
+            zone_label_count += 1
+    print(f"✓ Added {zone_label_count} zone label badges (initially hidden)")
     print()
 
     # 4) All driver traces (including winner), colored by driver
@@ -397,13 +449,49 @@ def create_zone_focused_dashboard(
         pad=dict(r=4, l=4, t=4, b=4),
         font=dict(size=11, color="rgba(150,150,150,0.9)"),
     )
+
+    # Zone labels toggle button (only add if zone labels exist)
+    zone_labels_toggle_button = None
+    if zone_label_count > 0:
+        zone_labels_toggle_button = dict(
+            type="buttons",
+            direction="right",
+            buttons=[
+                dict(
+                    label="Zone Labels",
+                    method="skip",  # JavaScript will handle the toggle
+                )
+            ],
+            x=0.98,
+            xanchor="right",
+            y=0.01,
+            yanchor="bottom",
+            showactive=False,
+            bgcolor="rgba(26,26,26,0.95)",
+            bordercolor="rgba(255,165,0,0.4)",
+            borderwidth=1,
+            pad=dict(r=4, l=4, t=4, b=4),
+            font=dict(size=11, color="orange"),
+        )
+
     print("✓ Created corner labels toggle button")
     print("✓ Created average brake points toggle button")
     print("✓ Created axes toggle button")
+    if zone_labels_toggle_button:
+        print("✓ Created zone labels toggle button")
     print()
 
     # 9) Layout: add toggles (zone pills moved to external toolbar), use legend for drivers
     print("Finalizing layout...")
+    # Build updatemenus list conditionally
+    updatemenus_list = [
+        corner_toggle_button,
+        centroids_toggle_button,
+        axes_toggle_button,
+    ]
+    if zone_labels_toggle_button:
+        updatemenus_list.append(zone_labels_toggle_button)
+
     fig.update_layout(
         title=dict(
             text="Barber Motorsports Park",
@@ -425,11 +513,7 @@ def create_zone_focused_dashboard(
                 font=dict(size=10, color="rgba(255, 255, 255, 0.5)"),
             )
         ],
-        updatemenus=[
-            corner_toggle_button,
-            centroids_toggle_button,
-            axes_toggle_button,
-        ],
+        updatemenus=updatemenus_list,
         legend=dict(
             x=0.98,
             xanchor="right",
@@ -734,6 +818,39 @@ def create_zone_focused_dashboard(
                         e.preventDefault();
                         e.stopPropagation();
                         toggleCentroids();
+                    }});
+                }}
+            }});
+        }}, 500);  // Wait for Plotly to render
+
+        // Wire up zone labels toggle button
+        setTimeout(function() {{
+            const plotDiv = document.querySelector('.plotly-graph-div');
+            if (!plotDiv || !plotDiv.data) return;
+
+            // Find all zone-badge traces by meta attribute
+            const zoneBadgeIndices = plotDiv.data
+                .map((t, i) => (t && t.meta === 'zone-badge' ? i : -1))
+                .filter(i => i >= 0);
+
+            if (zoneBadgeIndices.length === 0) return;
+
+            // Track zone labels visibility state
+            let zoneLabelsVisible = false;
+
+            // Find and wire up the Zone Labels button
+            const buttons = document.querySelectorAll('.updatemenu-button');
+            buttons.forEach(btn => {{
+                if (btn.textContent.includes('Zone Labels')) {{
+                    btn.addEventListener('click', function(e) {{
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        // Toggle visibility state
+                        zoneLabelsVisible = !zoneLabelsVisible;
+
+                        // Update all zone-badge traces
+                        Plotly.restyle(plotDiv, {{'visible': zoneLabelsVisible}}, zoneBadgeIndices);
                     }});
                 }}
             }});
