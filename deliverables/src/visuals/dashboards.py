@@ -195,12 +195,12 @@ def create_zone_focused_dashboard(
             & (brake_events_df["zone_id"].notna())
         ].copy()
 
-        # Winner gets white styling and starts visible
+        # Winner gets white fill with gold stroke (championship styling)
         is_winner = drv == reference_vehicle_number
         if is_winner:
-            driver_color = "rgba(255,255,255,0.9)"  # White (matches stroke)
-            marker_line_color = "rgba(255,255,255,0.9)"
-            marker_line_width = 2.5
+            driver_color = "rgba(255, 255, 255, 1.0)"  # Pure white fill
+            marker_line_color = "rgba(255, 215, 0, 1.0)"  # Gold stroke
+            marker_line_width = 4  # Thick gold ring
             is_visible = True
             driver_label = f"Winner #{drv}"
         else:
@@ -239,12 +239,12 @@ def create_zone_focused_dashboard(
     for drv in driver_list:
         df_cent = centroids_df[centroids_df["vehicle_number"] == drv].copy()
 
-        # Winner gets white styling, same as brake points
+        # Winner gets white fill with gold stroke, same as brake points
         is_winner = drv == reference_vehicle_number
         if is_winner:
-            driver_color = "rgba(255,255,255,0.9)"  # White (matches stroke)
-            marker_line_color = "rgba(255,255,255,0.9)"
-            marker_line_width = 2.5
+            driver_color = "rgba(255, 255, 255, 1.0)"  # Pure white fill
+            marker_line_color = "rgba(255, 215, 0, 1.0)"  # Gold stroke
+            marker_line_width = 4  # Thick gold ring
         else:
             driver_color = DRIVER_COLORS.get(drv, "#999")
             marker_line_color = "rgba(255,255,255,0.7)"
@@ -256,7 +256,7 @@ def create_zone_focused_dashboard(
                 y=df_cent["centroid_y"],
                 mode="markers",
                 marker=dict(
-                    size=20,  # 2x comparison driver size
+                    size=20,  # Same size for all drivers
                     color=driver_color,
                     opacity=0,  # Initially hidden (controlled by mode toggle)
                     line=dict(color=marker_line_color, width=marker_line_width),
