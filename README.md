@@ -11,8 +11,14 @@ Brake Point Drift Detector analyzes GR Cup telemetry to measure driver consisten
 
 ## Demo & Submission
 
+🎯 **[Try the Live Demo →](https://edulizanay.github.io/14.toyota-hackathon/)**
+
+No installation required - opens directly in your browser with interactive features:
+- Click drivers in the legend to compare brake point consistency
+- Toggle between individual brake points and average centroids
+- Explore zone-by-zone dispersion metrics
+
 - **Demo Video**: [3-minute walkthrough on YouTube](https://www.youtube.com/watch?v=TODO)
-- **Live Demo**: [Try it here](https://TODO-github-pages-url)
 - **Official Dataset**: `barber-motorsports-park.zip` from [trddev.com/hackathon-2025](https://trddev.com/hackathon-2025)
 - **Supplemental Data**: USAC race timing data for lap time correlation
 
