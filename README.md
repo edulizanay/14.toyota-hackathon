@@ -6,11 +6,16 @@ Brake Point Drift Detector analyzes GR Cup telemetry to measure driver consisten
 
 > **Consistency separates fast drivers from champions—but how do you measure it?**
 
-[![Demo Video](./docs/images/dashboard-screenshot.png)](https://youtu.be/-Oz4Zg9sSGc)
+<video src="https://github.com/edulizanay/14.toyota-hackathon/raw/main/docs/videos/demo.mp4" controls width="100%">
+  Your browser does not support the video tag. <a href="./docs/videos/demo.mp4">Download the demo video</a>
+</video>
+
+*Interactive dashboard showing brake point analysis with zone-focused view, driver comparison, and consistency metrics.*
+
 
 ## Demo
 
-- **[Try the live demo](https://edulizanay.github.io/14.toyota-hackathon/)**
+- **[Try the tool here](https://edulizanay.github.io/14.toyota-hackathon/)**
 - **Official Dataset**: `barber-motorsports-park.zip` from [trddev.com/hackathon-2025](https://trddev.com/hackathon-2025)
 
 ## What we learned
