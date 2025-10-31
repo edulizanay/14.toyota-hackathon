@@ -29,7 +29,6 @@ deliverables/data/input/telemetry.csv
 # Generated outputs from deliverables package
 deliverables/dashboard.html
 deliverables/data/output/
-deliverables/data/gps-tracks/track_centerline.csv
 deliverables/data/processed/
 deliverables/data/raw/
 
